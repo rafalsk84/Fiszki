@@ -1,0 +1,18 @@
+# dane kont (SQLite + WAL) — zostają na dysku, nigdy w repo
+dane/
+*.db
+*.db-shm
+*.db-wal
+
+# dowody testów CDP, generowane przez `node cdp-check.mjs`
+shots/
+
+# profil Chrome i pliki tymczasowe
+.tmp/
+*.log
+npm-debug.log*
+
+# systemowe
+.DS_Store
+Thumbs.db
+desktop.ini
