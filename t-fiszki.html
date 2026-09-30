@@ -16,7 +16,7 @@
   if(m==='auto')m=window.matchMedia('(prefers-color-scheme: light)').matches?'jasny':'ciemny';
   document.documentElement.setAttribute('data-motyw',m);
   var w=g.wyglad||'auto';
-  if(w==='web'||(w==='auto'&&window.innerWidth>=1000))document.documentElement.classList.add('web');
+  if(w==='web'||(w==='auto'&&window.innerWidth>=760))document.documentElement.classList.add('web');
 }catch(e){}})();
 </script>
 <style>
@@ -182,6 +182,10 @@ html.telefon .phone{width:min(430px,100vw);border-radius:0}
 #icSun{display:none}
 html[data-motyw="jasny"] #icSun{display:block}
 html[data-motyw="jasny"] #icMoon{display:none}
+/* Ikona pokazuje to, co właśnie widać: telefon albo monitor. */
+#icMonitor{display:none}
+html.web #icMonitor{display:block}
+html.web #icPhone{display:none}
 @media (max-width:372px){          /* trzeci przycisk w pasku nie może wypychać tytułu */
   .appbar{gap:8px}
   .chip-txt{display:none}
@@ -463,6 +467,13 @@ html.web body{font-size:17px;line-height:1.6}
 .web .metric{min-width:96px}
 .web .btn.block{max-width:560px;margin-inline:auto}
 .web .rail{display:none}
+@media (max-width:759px){                    /* komputer na wąskim ekranie: układ 760 px do przewijania */
+  .web .stage{overflow-x:auto}
+  .web .phone{width:760px;min-height:100dvh;height:auto}
+  .web .appbar{position:sticky;left:0;width:100vw}
+  .web .tabbar{position:fixed;left:0;right:0;bottom:0;width:100vw}
+  .web .viewport{min-height:calc(100dvh - 66px)}
+}
 @media (min-width:760px){                  /* web z paskiem bocznym: od tej szerokości nawigacja ma sens */
   .web .phone{display:grid;grid-template-columns:252px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
     grid-template-areas:"nav bar" "nav main";overflow:visible}
@@ -515,9 +526,10 @@ button.chip:hover{border-color:var(--line-strong);background:var(--glass-2)}
 .konto h2{font-family:var(--display);font-size:24px;font-weight:800;letter-spacing:-.05em;text-align:center}
 .konto .op{font-size:13px;color:var(--muted);text-align:center;line-height:1.55}
 .konto .pole{display:grid;gap:6px}
-.konto .tryby{display:flex;gap:6px;padding:5px;border-radius:14px;background:var(--sunk);border:1px solid var(--line)}
-.konto .tryby button{flex:1;min-height:38px;border-radius:10px;font:800 12.5px var(--body);color:var(--muted)}
-.konto .tryby button[aria-pressed="true"]{background:var(--glass-2);color:var(--text);box-shadow:var(--shadow-card)}
+.tryby{display:flex;gap:6px;padding:5px;border-radius:14px;background:var(--sunk);border:1px solid var(--line)}
+.tryby button{flex:1;min-height:38px;border-radius:10px;font:800 12.5px var(--body);color:var(--muted)}
+.tryby button[aria-pressed="true"]{background:var(--glass-2);color:var(--text);box-shadow:var(--shadow-card)}
+.switchblock{display:grid;gap:9px;padding:12px 0 13px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700}
 .konto .haslo{position:relative}
 .konto .haslo .oko{position:absolute;right:8px;top:31px;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:var(--muted)}
 .konto .haslo .oko svg{width:17px;height:17px;stroke:currentColor;stroke-width:1.8;fill:none}
@@ -614,11 +626,11 @@ html.konto-widok .viewport{padding-bottom:24px}
       <div><kbd>Z</kbd><span>cofnij ostatnią ocenę</span></div>
       <div><kbd>D</kbd><kbd>N</kbd><kbd>T</kbd><kbd>P</kbd><span>Dziś · Nauka · Talie · Postęp</span></div>
       <div><kbd>L</kbd><span>motyw: jasny albo ciemny</span></div>
-      <div><kbd>W</kbd><span>widok: webowy albo na telefon</span></div>
+      <div><kbd>W</kbd><span>widok: na telefon albo na komputer</span></div>
       <div><kbd>Esc</kbd><span>zamknij arkusz</span></div>
     </div>
     <p class="note">Kolejka, widełki czasowe na przyciskach oceny i prognoza na 14 dni są liczone naprawdę algorytmem SM-2. Backend, logowanie przez T-Portal i synchronizacja między urządzeniami to osobna warstwa — w tym pliku jest symulowana.</p>
-    <p class="note">Ten sam plik działa trzema układami: na telefonie na pełnym ekranie, w przeglądarce laptopa jako wersja webowa z nawigacją po lewej, oraz w podglądzie na telefon. Motyw jasny albo ciemny przełączasz w pasku — domyślnie idzie za ustawieniem systemu.</p>
+    <p class="note">Ten sam plik działa jak aplikacja na telefonie i jak strona na komputerze. Próg to 760 px: węższe okno dostaje układ telefonowy, szersze komputerowy z nawigacją po lewej. Wybór zmienisz przyciskiem w pasku, klawiszem <kbd>W</kbd> albo w menu → „Widok aplikacji". Motyw jasny albo ciemny przełączasz w pasku — domyślnie idzie za ustawieniem systemu.</p>
   </aside>
 
   <div class="phone">
@@ -634,8 +646,9 @@ html.konto-widok .viewport{padding-bottom:24px}
         <svg id="icSun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/></svg>
         <svg id="icMoon" viewBox="0 0 24 24"><path d="M20 13.5A8.5 8.5 0 1 1 10.5 4a7 7 0 0 0 9.5 9.5z"/></svg>
       </button>
-      <button class="iconbtn" id="layoutBtn" aria-label="Przełącz szerokość widoku" title="Widok webowy / podgląd na telefon">
-        <svg viewBox="0 0 24 24"><rect x="2.5" y="4" width="13" height="10" rx="2"/><path d="M6 18h7M9.5 14v4"/><rect x="16.5" y="10" width="5.5" height="10" rx="1.6"/></svg>
+      <button class="iconbtn" id="layoutBtn" aria-label="Przełącz na widok na komputer">
+        <svg id="icPhone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.6"/><path d="M10.6 18.7h2.8"/></svg>
+        <svg id="icMonitor" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="12.5" rx="2.2"/><path d="M8.5 20.5h7M12 16.5v4"/></svg>
       </button>
       <button class="iconbtn" id="menuBtn" aria-label="Menu i ustawienia">
         <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
@@ -943,30 +956,31 @@ function applyTheme(){
   $('#themeBtn').setAttribute('aria-label',t==='jasny'?'Włącz motyw ciemny':'Włącz motyw jasny');
   $('#themeBtn').title=t==='jasny'?'Motyw: jasny — kliknij za ciemny':'Motyw: ciemny — kliknij za jasny';
 }
-/* Próg automatycznego układu webowego. Poniżej niego „webowy" i „telefon" wyglądają
-   tak samo, więc na wąskim ekranie przełącznik chodzi tylko między auto a web. */
-const PROG_WEB=1000, PROG_PASEK=760;
+/* Jeden próg: poniżej 760 px aplikacja układa się jak na telefonie, od 760 px dostaje
+   układ webowy z nawigacją jako paskiem z lewej. Tę samą liczbę ma skrypt przed pierwszym
+   malowaniem na początku pliku — trzeba ją zmieniać w obu miejscach. */
+const PROG_WEB=760;
+function czyWeb(w){return S.settings.wyglad==='web'||(S.settings.wyglad==='auto'&&w>=PROG_WEB)}
 function opisWidoku(wyglad,w){
-  if(wyglad==='telefon')return 'podgląd na telefon w oknie '+w+' px';
-  if(wyglad==='auto')return 'auto — telefon do '+PROG_WEB+' px, wyżej webowy';
-  return w>=PROG_PASEK?'webowy na pełnej szerokości, nawigacja jako pasek z lewej'
-    :'webowy na pełnej szerokości — pasek nawigacji pojawi się od '+PROG_PASEK+' px, czyli po obróceniu telefonu albo na tablecie';
+  if(wyglad==='telefon')return 'widok na telefon: wąska kolumna'+(w>=PROG_WEB?', wyśrodkowana w oknie '+w+' px':'');
+  if(wyglad==='auto')return w>=PROG_WEB
+    ?'dopasowanie: okno ma '+w+' px, więc wyświetla się wersja na komputer'
+    :'dopasowanie: okno ma '+w+' px, więc wyświetla się wersja na telefon';
+  return w>=PROG_WEB?'wersja na komputer: pełna szerokość okna, menu jako pasek z lewej'
+    :'wersja na komputer: układ '+PROG_WEB+' px przewijany w poziomie — obróć telefon, żeby zmieścił się cały';
 }
 function applyLayout(){
   const w=window.innerWidth;
-  const use=S.settings.wyglad==='web'||(S.settings.wyglad==='auto'&&w>=PROG_WEB);
+  const use=czyWeb(w);
   const root=document.documentElement;
   root.classList.toggle('web',use);
-  root.classList.toggle('telefon',!use&&S.settings.wyglad!=='web'&&w>=PROG_WEB);
+  // Ramka telefonu wymaga okna dość wysokiego — w niskim (telefon poziomo) menu wypadałoby poza krawędź.
+  root.classList.toggle('telefon',!use&&S.settings.wyglad==='telefon'&&w>=PROG_WEB&&window.innerHeight>=620);
   const b=$('#layoutBtn');
   if(b){
-    const wasciwy=w<PROG_PASEK;
-    b.setAttribute('aria-label',use?(wasciwy?'Wróć do widoku na telefon':'Przełącz na podgląd na telefon')
-      :(wasciwy?'Zobacz wersję jak na komputerze':'Przełącz na widok webowy'));
-    b.title=use&&wasciwy?'Widok pełnoekranowy — kliknij, żeby wrócić do telefonu'
-      :use?'Widok webowy — kliknij, żeby zobaczyć telefon'
-      :wasciwy?'Wersja jak na komputerze — kliknij, żeby zobaczyć układ pełnoekranowy'
-      :'Podgląd na telefon — kliknij za widok webowy';
+    b.setAttribute('aria-label',use?'Przełącz na widok na telefon':'Przełącz na widok na komputer');
+    b.title=use?'Teraz wersja na komputer — kliknij, żeby wrócić do telefonu'
+      :'Teraz wersja na telefon — kliknij, żeby zobaczyć wersję na komputer';
     b.classList.toggle('aktywny',use);
   }
 }
@@ -977,11 +991,9 @@ function cycleTheme(){
 }
 function cycleLayout(){
   const w=window.innerWidth;
-  S.settings.wyglad=w<PROG_WEB
-    ?(S.settings.wyglad==='web'?'auto':'web')
-    :(S.settings.wyglad==='auto'?'telefon':S.settings.wyglad==='telefon'?'web':'auto');
+  S.settings.wyglad=czyWeb(w)?'telefon':(w>=PROG_WEB?'auto':'web');
   applyLayout();save();render();
-  toast('Widok: '+opisWidoku(S.settings.wyglad,w)+'.','ok');
+  toast('Teraz '+opisWidoku(S.settings.wyglad,w)+'.','ok');
 }
 mqLight.addEventListener('change',function(){if(S.settings.motyw==='auto'){applyTheme();render()}});
 let rT=null;
@@ -1079,7 +1091,7 @@ function render(){
   if(SERWER&&!konto&&!S.settings.gosc){
     root.classList.add('konto-widok');
     $('#viewport').innerHTML=vLogin();wire();
-    if(!loginFokus){loginFokus=true;const p=$('#lName');if(p)p.focus()}
+    if(!loginFokus){loginFokus=true;const p=$('#lName');if(p)p.focus({preventScroll:true})}
     return;
   }
   root.classList.remove('konto-widok');
@@ -1432,15 +1444,16 @@ function openSheet(title,sub,html,foot){
   requestAnimationFrame(function(){sc.classList.add('open')});
   wire();
   const f=$('#sheetIn button,#sheetIn input,#sheetIn textarea,#sheetIn select')||$('#sheetClose');
-  if(f)f.focus();
+  // preventScroll: na niskim ekranie (telefon poziomo) focus() przewijał dokument i arkusz wypadał za górną krawędź.
+  if(f)f.focus({preventScroll:true});
 }
 function closeSheet(){const sc=$('#scrim');sc.classList.remove('open');
-  setTimeout(function(){sc.hidden=true},260);if(lastFocus&&lastFocus.focus)lastFocus.focus()}
+  setTimeout(function(){sc.hidden=true},260);if(lastFocus&&lastFocus.focus)lastFocus.focus({preventScroll:true})}
 function focusTrap(e){
   const els=$$('#sheet button,#sheetIn input,#sheetIn textarea,#sheetIn select').filter(function(el){return !el.disabled&&el.offsetParent!==null});
   if(!els.length)return;const a=els[0],z=els[els.length-1];
-  if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}
-  else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}
+  if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus({preventScroll:true})}
+  else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus({preventScroll:true})}
 }
 const dots=(n,tot)=>Array.apply(null,{length:tot}).map(function(_,i){return '<b class="'+(i+1===n?'on':'')+'">'+(i+1)+'</b>'+(i+1<tot?'<hr>':'')}).join('');
 
@@ -1523,8 +1536,8 @@ function deckForm(){
 }
 function createDeck(){
   const n=$('#dName').value.trim();
-  if(n.length<2){$('#dErr').textContent='Podaj nazwę — minimum 2 znaki.';$('#dName').focus();return}
-  if(S.decks.some(function(d){return d.name.toLowerCase()===n.toLowerCase()})){$('#dErr').textContent='Taka talia już istnieje.';$('#dName').focus();return}
+  if(n.length<2){$('#dErr').textContent='Podaj nazwę — minimum 2 znaki.';$('#dName').focus({preventScroll:true});return}
+  if(S.decks.some(function(d){return d.name.toLowerCase()===n.toLowerCase()})){$('#dErr').textContent='Taka talia już istnieje.';$('#dName').focus({preventScroll:true});return}
   const d={id:'d'+Date.now().toString(36),name:n,color:$('#dColor').value,origin:$('#dOrigin').value};
   S.decks.push(d);deckOpen=d.id;save();closeSheet();route='decks';render();
   toast('Talia „'+n+'” jest pusta — dodaj fiszki.','ok');
@@ -1559,7 +1572,7 @@ function saveCard(){
   const f=$('#cF').value.trim(),b=$('#cB').value.trim(),not=$('#cN').value.trim(),dk=$('#cD').value,zt=$('#cZ').value.trim();
   const ik=safeIkona($('#cI').value);
   const zn=zt?{t:zt,k:znWybrany||ZN_KOLORY[0][1]}:null;
-  if(f.length<3||b.length<2){$('#cErr').textContent='Wypełnij obie strony — pytanie i odpowiedź.';$('#cF').focus();return}
+  if(f.length<3||b.length<2){$('#cErr').textContent='Wypełnij obie strony — pytanie i odpowiedź.';$('#cF').focus({preventScroll:true});return}
   const c=edytujKarte?findCard(edytujKarte):null;
   if(c){
     if(c.deck!==dk)S.log.forEach(function(l){if(l.card===c.id)l.deck=dk});
@@ -1618,9 +1631,11 @@ function openMenu(){
     '<label class="switchrow">Nowych fiszek dziennie<select id="mNew">'+[5,8,12,20,30,50].map(function(v){return '<option'+(v===S.settings.dailyNew?' selected':'')+'>'+v+'</option>'}).join('')+'</select></label>'+
     '<label class="switchrow">Motyw<select class="wide" id="mTheme">'+
       [['auto','auto — za systemem'],['jasny','jasny'],['ciemny','ciemny']].map(function(o){return '<option value="'+o[0]+'"'+(S.settings.motyw===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label>'+
-    '<label class="switchrow">Układ okna<select class="wide" id="mLayout">'+
-      [['auto','auto — telefon do '+PROG_WEB+' px'],['web','komputerowy / pełna szerokość'],['telefon','podgląd na telefon']].map(function(o){return '<option value="'+o[0]+'"'+(S.settings.wyglad===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label>'+
-    '<p id="mLayoutHint" style="font-size:12px;color:var(--dim);line-height:1.55;margin:-2px 0 10px">'+opisWidoku(S.settings.wyglad,window.innerWidth)+'</p>'+
+    '<div class="switchblock"><span>Widok aplikacji</span>'+
+      '<div class="tryby" id="mLayout" role="group" aria-label="Widok aplikacji">'+
+      [['auto','Dopasuj do ekranu'],['telefon','Telefon'],['web','Komputer']].map(function(o){
+        return '<button type="button" data-v="'+o[0]+'" aria-pressed="'+(S.settings.wyglad===o[0])+'">'+o[1]+'</button>'}).join('')+
+      '</div><p id="mLayoutHint" style="font-size:12px;font-weight:600;color:var(--dim);line-height:1.55">'+opisWidoku(S.settings.wyglad,window.innerWidth)+'</p></div>'+
     '<label class="switchrow">Symuluj awarię pobierania testu<input type="checkbox" id="mErr"'+(S.settings.simError?' checked':'')+'><span class="switch"></span></label>'+
     '<div style="margin-top:8px"><button class="menub danger" data-act="reset"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v5h5"/></svg><span id="rstLab">Wyzeruj dane demo</span></button></div>'+
     '<p style="font-size:12px;color:var(--dim);line-height:1.55">Terminy powtórek liczy naprawdę algorytm SM-2. Pobieranie wyników testów jest tu przykładowe — w wersji szkolnej wejdzie przez konto T-Portalu i API dziennika.</p>',
@@ -1628,9 +1643,11 @@ function openMenu(){
   $('#mNew').onchange=function(e){S.settings.dailyNew=+e.target.value;save();render();toast('Limit nowych fiszek: '+e.target.value+' dziennie.','ok')};
   $('#mTheme').onchange=function(e){S.settings.motyw=e.target.value;applyTheme();save();render();
     toast('Motyw: '+(S.settings.motyw==='auto'?'auto — teraz '+themeReal():S.settings.motyw)+'.','ok')};
-  $('#mLayout').onchange=function(e){S.settings.wyglad=e.target.value;applyLayout();save();render();
+  $('#mLayout').onclick=function(e){const b=e.target.closest('button[data-v]');if(!b||b.dataset.v===S.settings.wyglad)return;
+    S.settings.wyglad=b.dataset.v;applyLayout();save();render();
+    [].forEach.call(this.querySelectorAll('button'),function(x){x.setAttribute('aria-pressed',String(x===b))});
     const h=$('#mLayoutHint');if(h)h.textContent=opisWidoku(S.settings.wyglad,window.innerWidth);
-    toast('Widok: '+opisWidoku(S.settings.wyglad,window.innerWidth)+'.','ok')};
+    toast('Teraz '+opisWidoku(S.settings.wyglad,window.innerWidth)+'.','ok')};
   $('#mErr').onchange=function(e){S.settings.simError=e.target.checked;save();render();
     toast(e.target.checked?'Tryb awarii: import testów zgłosi błąd sieci.':'Pobieranie testów znowu działa (symulacja).',e.target.checked?'bad':'ok')};
 }

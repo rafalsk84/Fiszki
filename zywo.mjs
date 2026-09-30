@@ -6,7 +6,7 @@ import {spawn} from 'node:child_process';
 import {writeFileSync, mkdirSync, rmSync} from 'node:fs';
 
 const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-const URLA = 'http://127.0.0.1:8765/t-fiszki.html';
+const SERWER = 'http://127.0.0.1:' + (process.env.PORT || 8765);const URLA = SERWER + '/t-fiszki.html'
 const OUT = 'D:\\Moje programowanie\\T-Fiszki\\shots';
 const STEMP = Date.now().toString(36).slice(-5);
 const NAZWA = 'Test Zyx ' + STEMP, HASLO = 'test-haslo-123';
@@ -180,7 +180,7 @@ await tel.ev(`document.getElementById('syncChip').click()`); await sleep(700);
 await tel.click('[data-act="kontoUsun"]', 900);
 await tel.wpisz('#rmPass', HASLO);
 await tel.click('[data-act="kontoUsunTak"]', 2200);
-const poUsunieciu = await (await fetch('http://127.0.0.1:8765/api/health')).json();
+const poUsunieciu = await (await fetch(SERWER + '/api/health')).json();
 check('konto testowe skasowane, baza testowa znowu pusta', poUsunieciu.konta === 0, JSON.stringify(poUsunieciu));
 check('zero wyjątków na telefonie', tel.logi.length === 0, tel.logi.slice(0, 3).join(' | '));
 check('zero wyjątków na laptopie', lap.logi.length === 0, lap.logi.slice(0, 3).join(' | '));

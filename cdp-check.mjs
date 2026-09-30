@@ -1,11 +1,12 @@
 // CDP walkthrough: konto+serwer, telefon 390/320, układ webowy, oba motywy, pełny flow,
 // edycja/usuwanie fiszek, bloki statystyk, konflikt 409 i scalanie, audyt kontrastu AA, błędy konsoli.
-// Wymaga działającego `node serwer.mjs` na 127.0.0.1:8765.
+// Wymaga działającego `node serwer.mjs` (domyślnie 127.0.0.1:8765, własny port przez PORT=...).
 import {spawn} from 'node:child_process';
 import {writeFileSync, mkdirSync, rmSync} from 'node:fs';
 
 const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-const URL = 'http://127.0.0.1:8765/t-fiszki.html';
+const SERWER = 'http://127.0.0.1:' + (process.env.PORT || 8765);
+const URL = SERWER + '/t-fiszki.html';
 const OUT = 'D:\\Moje programowanie\\T-Fiszki\\shots';
 const STEMP = Date.now().toString(36).slice(-5);
 const ANIA = 'Test Ania ' + STEMP, HASLO = 'test-haslo-123', BART = 'Test Bart ' + STEMP;
@@ -85,7 +86,7 @@ const przeleczenie = wide => `(()=>{const bad=[];document.querySelectorAll('*').
 const FAIL = [];
 function check(nazwa, ok, opis) { console.log((ok ? 'PASS ' : 'FAIL ') + nazwa + (opis ? '  ' + opis : '')); if (!ok) FAIL.push(nazwa + (opis ? ' — ' + opis : '')); }
 const start = await (await fetch(URL)).status;
-const zdrowie0 = await (await fetch('http://127.0.0.1:8765/api/health')).json();
+const zdrowie0 = await (await fetch(SERWER + '/api/health')).json();
 console.log('SERWER', JSON.stringify({start, kontaPrzed: zdrowie0.konta}));
 
 /* ══ 0 · Ekran konta ═══════════════════════════════════════════════ */
@@ -619,15 +620,15 @@ console.log('KLAWISZ-W-2', JSON.stringify(wygladPo2));
 await key('KeyW', 'w');
 const wygladPo3 = await json(stanWidoku);
 console.log('KLAWISZ-W-3', JSON.stringify(wygladPo3));
-check('klawisz W na 1280 px: telefon → web → auto → telefon',
-  wygladPrzed === 'telefon' && wygladPo.ustawienie === 'web' && wygladPo.web === true && wygladPo.telefon === false
-  && wygladPo2.ustawienie === 'auto' && wygladPo2.web === true
-  && wygladPo3.ustawienie === 'telefon' && wygladPo3.web === false && wygladPo3.telefon === true,
+check('klawisz W na 1280 px: telefon ↔ komputer (auto)',
+  wygladPrzed === 'telefon' && wygladPo.ustawienie === 'auto' && wygladPo.web === true && wygladPo.telefon === false
+  && wygladPo2.ustawienie === 'telefon' && wygladPo2.web === false && wygladPo2.telefon === true
+  && wygladPo3.ustawienie === 'auto' && wygladPo3.web === true,
   JSON.stringify({wygladPrzed, wygladPo, wygladPo2, wygladPo3}));
 await ev(`S.settings.wyglad='auto';S.settings.motyw='ciemny';save();applyTheme();applyLayout()`); await sleep(400);
 
 /* ══ 11 · Granica układu i szerokie ekrany ═════════════════════════ */
-for (const w of [999, 1000, 1100, 1280, 1400, 1600, 2560]) {
+for (const w of [759, 760, 900, 1280, 1400, 1600, 2560]) {
   await send('Emulation.setDeviceMetricsOverride', {width: w, height: w === 2560 ? 1440 : 900, deviceScaleFactor: 1, mobile: false});
   await sleep(750);
   const x = await json(`JSON.stringify({web:document.documentElement.classList.contains('web'),scrollW:document.scrollingElement.scrollWidth,inner:innerWidth,
@@ -639,7 +640,7 @@ for (const w of [999, 1000, 1100, 1280, 1400, 1600, 2560]) {
     bad:[...new Set([...document.querySelectorAll('*')].filter(el=>el.getBoundingClientRect().right>innerWidth+1).map(el=>el.tagName+'.'+String(el.className).slice(0,16)))].slice(0,4)})`);
   console.log('SZEROKOSC-' + w, JSON.stringify(x));
   check('bez przepełnienia na ' + w + ' px', x.scrollW <= x.inner + 1 && x.bad.length === 0, JSON.stringify(x));
-  check('układ webowy od 1000 px (' + w + ')', x.web === (w >= 1000), JSON.stringify({web: x.web, kolumna: x.kolumna}));
+  check('układ webowy od 760 px (' + w + ')', x.web === (w >= 760), JSON.stringify({web: x.web, kolumna: x.kolumna}));
   if (w >= 1400) check('panel informacyjny od 1400 px (' + w + ')', x.panelInfo === true && x.szerokoscPanelu > 300, JSON.stringify({panelInfo: x.panelInfo, szer: x.szerokoscPanelu}));
   if (w < 1400) check('panel informacyjny ukryty poniżej 1400 px (' + w + ')', x.panelInfo === false, String(x.panelInfo));
 }
@@ -684,54 +685,80 @@ await ev(`startSession(false)`); await sleep(500); await shot('d2-desktop-nauka'
 
 /* ══ 11b · Przełącznik widoku na telefonie ═════════════════════════ */
 const przepl = `przepełnienie:[...new Set([...document.querySelectorAll('*')].filter(el=>el.getBoundingClientRect().right>innerWidth+1).map(el=>el.tagName+'.'+String(el.className).slice(0,14)))].slice(0,4)`;
+const IKONY = `ikonaTelefon:getComputedStyle(document.getElementById('icPhone')).display!=='none',
+  ikonaMonitor:getComputedStyle(document.getElementById('icMonitor')).display!=='none'`;
 await send('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 2, mobile: true});
 await ev(`S.settings.wyglad='auto';applyLayout();go('today')`); await sleep(800);
 const telPrzycisk = await json(`JSON.stringify({widoczny:getComputedStyle(document.getElementById('layoutBtn')).display!=='none',
-  etykieta:document.getElementById('layoutBtn').getAttribute('aria-label'), ${przepl}})`);
+  etykieta:document.getElementById('layoutBtn').getAttribute('aria-label'),
+  ${IKONY},
+  prawyKrawedz:Math.round(document.querySelector('.appbar').getBoundingClientRect().right),
+  dok:document.scrollingElement.scrollWidth, ${przepl}})`);
 console.log('TELEFON-PRZYCISK', JSON.stringify(telPrzycisk));
 check('na telefonie w pasku jest przycisk zmiany widoku', telPrzycisk.widoczny === true && /komputer/.test(telPrzycisk.etykieta), JSON.stringify(telPrzycisk));
-check('pasek telefonu mieści trzy przyciski (390 px)', telPrzycisk.przepełnienie.length === 0, JSON.stringify(telPrzycisk));
+check('na telefonie przycisk pokazuje telefon, nie monitor', telPrzycisk.ikonaTelefon === true && telPrzycisk.ikonaMonitor === false, JSON.stringify(telPrzycisk));
+check('pasek telefonu mieści trzy przyciski (390 px)', telPrzycisk.prawyKrawedz <= 391 && telPrzycisk.dok <= 391, JSON.stringify(telPrzycisk));
 await shot('p1-telefon-auto');
 await click('#layoutBtn', 900);
 const telWeb = await json(`JSON.stringify({ustawienie:S.settings.wyglad,web:document.documentElement.classList.contains('web'),
+  canvas:Math.round(document.querySelector('.phone').getBoundingClientRect().width),
+  stageSw:document.querySelector('.stage').scrollWidth, stageCw:document.querySelector('.stage').clientWidth,
+  dok:document.scrollingElement.scrollWidth,
   tresc:Math.round(document.querySelector('.viewport').getBoundingClientRect().width),
+  gorny:Math.round(document.querySelector('.appbar').getBoundingClientRect().width),
   nawigacjaNaDole:Math.round(document.querySelector('.tabbar').getBoundingClientRect().top),
-  wysokoscNawigacji:Math.round(document.querySelector('.tabbar').getBoundingClientRect().height),
-  lokalnie:JSON.parse(localStorage.getItem(KSET)).wyglad, ${przepl}})`);
+  szerokoscNawigacji:Math.round(document.querySelector('.tabbar').getBoundingClientRect().width),
+  ${IKONY},
+  lokalnie:JSON.parse(localStorage.getItem(KSET)).wyglad})`);
 console.log('TELEFON-WEB', JSON.stringify(telWeb));
-check('telefon: kliknięcie włącza układ pełnoekranowy', telWeb.ustawienie === 'web' && telWeb.web === true, JSON.stringify(telWeb));
-check('telefon: treść dostaje prawie całą szerokość', telWeb.tresc >= 330, String(telWeb.tresc));
-check('telefon: nawigacja zostaje na dole, nie jako pasek boczny', telWeb.nawigacjaNaDole > 700 && telWeb.wysokoscNawigacji < 120, JSON.stringify({top: telWeb.nawigacjaNaDole, h: telWeb.wysokoscNawigacji}));
-check('telefon: wybór widoku nie przepełnia ekranu', telWeb.przepełnienie.length === 0, JSON.stringify(telWeb));
+check('telefon: kliknięcie włącza układ komputerowy (760 px)', telWeb.ustawienie === 'web' && telWeb.web === true && telWeb.canvas === 760, JSON.stringify(telWeb));
+check('telefon: układ komputerowy przewija się w poziomie, a okno nie', telWeb.stageSw === 760 && telWeb.stageCw === 390 && telWeb.dok <= 391, JSON.stringify(telWeb));
+check('telefon: treść dostaje pełną szerokość komputera', telWeb.tresc >= 700, String(telWeb.tresc));
+check('telefon: pasek górny i nawigacja trzymają się krawędzi okna', telWeb.gorny === 390 && telWeb.nawigacjaNaDole > 700 && telWeb.szerokoscNawigacji === 390, JSON.stringify(telWeb));
 check('telefon: wybór zapamiętany na tym urządzeniu', telWeb.lokalnie === 'web', String(telWeb.lokalnie));
+check('telefon: po włączeniu układu komputerowego przycisk pokazuje monitor', telWeb.ikonaMonitor === true && telWeb.ikonaTelefon === false, JSON.stringify(telWeb));
 aud = await json(AUDIT); console.log('AUDYT TELEFON-WEB', JSON.stringify(aud));
-check('kontrast AA w telefonie w układzie pełnoekranowym', aud.zlych === 0, JSON.stringify(aud.najgorsze));
+check('kontrast AA w telefonie w układzie komputerowym', aud.zlych === 0, JSON.stringify(aud.najgorsze));
 await ev(`go('decks')`); await sleep(600); await shot('p2-telefon-web-talie');
 await ev(`go('today')`); await sleep(500); await shot('p3-telefon-web-dzis');
 await click('#menuBtn', 700);
-const menuTel = await json(`JSON.stringify({wybrany:document.getElementById('mLayout').value,
+const menuTel = await json(`JSON.stringify({przyciski:[...document.querySelectorAll('#mLayout button')].map(b=>b.textContent.trim()),
+  wybrany:(document.querySelector('#mLayout button[aria-pressed="true"]')||{}).dataset?.v,
   podpowiedz:(document.getElementById('mLayoutHint')||{}).textContent||''})`);
 console.log('MENU-TELEFON', JSON.stringify(menuTel));
-check('menu na telefonie wyjaśnia, co da wybór', menuTel.wybrany === 'web' && /760/.test(menuTel.podpowiedz), JSON.stringify(menuTel));
+check('menu na telefonie ma nazwany przełącznik widoku', menuTel.przyciski.join('|') === 'Dopasuj do ekranu|Telefon|Komputer' && menuTel.wybrany === 'web', JSON.stringify(menuTel));
+check('menu na telefonie wyjaśnia, co właśnie widać', /760/.test(menuTel.podpowiedz) && /przewij/i.test(menuTel.podpowiedz), menuTel.podpowiedz);
 await click('[data-act="close"]', 600);
 await click('#layoutBtn', 900);
-const telZpowrotem = await json(`JSON.stringify({ustawienie:S.settings.wyglad,web:document.documentElement.classList.contains('web')})`);
-check('telefon: drugie kliknięcie wraca do auto', telZpowrotem.ustawienie === 'auto' && telZpowrotem.web === false, JSON.stringify(telZpowrotem));
+const telZpowrotem = await json(`JSON.stringify({ustawienie:S.settings.wyglad,web:document.documentElement.classList.contains('web'),
+  canvas:Math.round(document.querySelector('.phone').getBoundingClientRect().width)})`);
+check('telefon: drugie kliknięcie wraca do widoku na telefon', telZpowrotem.ustawienie === 'telefon' && telZpowrotem.web === false && telZpowrotem.canvas === 390, JSON.stringify(telZpowrotem));
 
-/* telefon obrócony (844x390) — tu układ komputerowy ma już pasek boczny */
+/* telefon obrócony (844x390) — tu układ komputerowy mieści się bez przewijania */
 await send('Emulation.setDeviceMetricsOverride', {width: 844, height: 390, deviceScaleFactor: 2, mobile: true});
 await ev(`S.settings.wyglad='auto';applyLayout();go('today')`); await sleep(700);
-const obrAuto = await json(`JSON.stringify({web:document.documentElement.classList.contains('web'),${przepl}})`);
-check('obrócony telefon zostaje przy widoku na telefon', obrAuto.web === false && obrAuto.przepełnienie.length === 0, JSON.stringify(obrAuto));
-await click('#layoutBtn', 900);
-const obrWeb = await json(`JSON.stringify({web:document.documentElement.classList.contains('web'),
+const obrAuto = await json(`JSON.stringify({web:document.documentElement.classList.contains('web'),
   pasek:Math.round(document.querySelector('.tabbar').getBoundingClientRect().width),
   tresc:Math.round(document.querySelector('.viewport').getBoundingClientRect().width),${przepl}})`);
-console.log('OBRÓCONY-WEB', JSON.stringify(obrWeb));
-check('obrócony telefon po kliknięciu dostaje pasek boczny', obrWeb.web === true && obrWeb.pasek === 252 && obrWeb.tresc >= 500, JSON.stringify(obrWeb));
-check('obrócony telefon: układ pełnoekranowy bez przepełnienia', obrWeb.przepełnienie.length === 0, JSON.stringify(obrWeb));
+console.log('OBRÓCONY-AUTO', JSON.stringify(obrAuto));
+check('obrócony telefon w trybie auto mieści układ komputerowy', obrAuto.web === true && obrAuto.pasek === 252 && obrAuto.tresc >= 500 && obrAuto.przepełnienie.length === 0, JSON.stringify(obrAuto));
+await click('#layoutBtn', 900);
+const obrTel = await json(`JSON.stringify({ustawienie:S.settings.wyglad,web:document.documentElement.classList.contains('web'),
+  ramka:document.documentElement.classList.contains('telefon'),
+  canvas:Math.round(document.querySelector('.phone').getBoundingClientRect().width),${przepl}})`);
+console.log('OBRÓCONY-TELEFON', JSON.stringify(obrTel));
+check('obrócony telefon: wybór „Telefon” daje wąską kolumnę bez ramki', obrTel.ustawienie === 'telefon' && obrTel.web === false && obrTel.ramka === false && obrTel.canvas === 560, JSON.stringify(obrTel));
+await click('#menuBtn', 800);
+const obrMenu = await json(`JSON.stringify({gora:Math.round(document.querySelector('.scrim.open .sheet').getBoundingClientRect().top),
+  dol:Math.round(document.querySelector('.scrim.open .sheet').getBoundingClientRect().bottom),
+  tytuł:(document.querySelector('.scrim.open .sheet h3')||{}).textContent||''})`);
+console.log('OBRÓCONY-MENU', JSON.stringify(obrMenu));
+check('niskie okno: menu otwiera się w całości na ekranie', obrMenu.tytuł === 'Menu i ustawienia' && obrMenu.gora >= 0 && obrMenu.dol <= 391, JSON.stringify(obrMenu));
+await shot('p4-telefon-obrocony-menu');
+await click('[data-act="close"]', 600);
+await ev(`S.settings.wyglad='web';applyLayout();render()`); await sleep(600);
 await ev(`S.settings.motyw='jasny';applyTheme();render()`); await sleep(600);
-await shot('p4-telefon-obrocony-web-jasny');
+await shot('p5-telefon-obrocony-web-jasny');
 aud = await json(AUDIT); console.log('AUDYT OBRÓCONY-WEB', JSON.stringify(aud));
 check('kontrast AA obrócony telefon web (jasny)', aud.zlych === 0, JSON.stringify(aud.najgorsze));
 await ev(`S.settings.motyw='ciemny';applyTheme();S.settings.wyglad='auto';applyLayout();render()`); await sleep(500);
@@ -769,7 +796,7 @@ await send('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, devic
 await ev(`S.settings.motyw='ciemny';S.settings.wyglad='auto';save();applyTheme();applyLayout()`); await sleep(800);
 const kasacja = await json(`ap('POST','/api/konto-usun',{haslo:${JSON.stringify(HASLO)}}).then(()=>JSON.stringify({ok:1}),e=>JSON.stringify({blad:e.message}))`);
 check('konto testowe skasowane', kasacja.ok === 1, JSON.stringify(kasacja));
-const zdrowie1 = await (await fetch('http://127.0.0.1:8765/api/health')).json();
+const zdrowie1 = await (await fetch(SERWER + '/api/health')).json();
 check('baza kont po testach znowu pusta', zdrowie1.konta === 0, JSON.stringify(zdrowie1));
 check('zero błędów konsoli i wyjątków', logs.length === 0, logs.slice(0, 8).join(' | '));
 console.log('LOGI KONSOLI', logs.length ? logs : '— brak błędów —');
