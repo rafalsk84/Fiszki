@@ -561,6 +561,18 @@ console.log('WEB-1280', await ev(`JSON.stringify({web:document.documentElement.c
   panelInfo:getComputedStyle(document.querySelector('.rail')).display!=='none',
   contentSzer:Math.round(document.querySelector('#viewport > *').getBoundingClientRect().width)})`));
 await shot('w1-web-dzis-ciemny');
+const dziWeb = await json(`JSON.stringify((()=>{const g=document.querySelector('.today-grid'),kids=[...g.children];
+  const vb=document.querySelector('.viewport').getBoundingClientRect();
+  return{kids:kids.map(k=>Math.round(k.getBoundingClientRect().width)).join('/'),ile:kids.length,
+    szerokosc:Math.round(g.getBoundingClientRect().width),dostepne:Math.round(vb.width-64),
+    slupki:document.querySelectorAll('.today-grid .chart .col').length,
+    wiersze:document.querySelectorAll('.today-grid .dz .w').length,
+    bloki:['Co dalej','Ostatnio oceniane','Z której talii','Import z testu'].filter(t=>document.body.textContent.includes(t)).length}})())`);
+console.log('EKRAN-DZIS-1280', JSON.stringify(dziWeb));
+const dzi = dziWeb;
+check('„Dziś” układa się w dwie kolumny', dzi.ile === 2 && Math.abs(dzi.kids.split('/')[0] - dzi.kids.split('/')[1]) < 60, dzi.kids);
+check('dwie kolumny wypełniają dostępną szerokość (bez pustego pasa)', dzi.szerokosc >= dzi.dostepne * 0.94, JSON.stringify({sz: dzi.szerokosc, dost: dzi.dostepne}));
+check('na „Dziś” jest prognoza na 7 dni i cztery bloki', dzi.slupki === 7 && dzi.bloki === 4, JSON.stringify({slupki: dzi.slupki, bloki: dzi.bloki}));
 await ev(`document.getElementById('menuBtn').click()`); await sleep(500);
 console.log('WEB-MENU', await ev(`(()=>{const r=document.querySelector('.sheet').getBoundingClientRect();
   return JSON.stringify({szerokosc:Math.round(r.width),srodekX:Math.round(r.left+r.width/2),srodekY:Math.round(r.top+r.height/2),odGory:Math.round(r.top)})})()`));
@@ -643,6 +655,20 @@ await shot('z3-dzis-2489-jasny');
 aud = await json(AUDIT); console.log('AUDYT JASNY 2489', JSON.stringify(aud));
 check('kontrast AA 2489 jasny', aud.zlych === 0, JSON.stringify(aud.najgorsze));
 await ev(`S.settings.motyw='ciemny';save();applyTheme();render()`); await sleep(400);
+
+/* okno użytkownika 1752x1228: ekran „Dziś” ma wypełniać dostępną przestrzeń */
+await send('Emulation.setDeviceMetricsOverride', {width: 1752, height: 1228, deviceScaleFactor: 1, mobile: false});
+await ev(`go('today')`); await sleep(900);
+const okno = await json(`JSON.stringify((()=>{const g=document.querySelector('.today-grid'),r=g.getBoundingClientRect(),
+  vb=document.querySelector('.viewport').getBoundingClientRect(),rl=document.querySelector('.rail').getBoundingClientRect();
+  const kids=[...g.children].map(k=>Math.round(k.getBoundingClientRect().width));
+  return{ile:g.children.length,kids:kids.join('/'),sz:Math.round(r.width),dostepne:Math.round(vb.width-64),
+    wys:Math.round(r.height),kolizja:r.right>rl.left+1}})())`);
+const ok1752 = okno;
+console.log('OKNO-1752', JSON.stringify(okno));
+check('1752 px: „Dziś” w dwóch kolumnach bez pustego pasa', ok1752.ile === 2 && ok1752.sz >= ok1752.dostepne * 0.94 && ok1752.kolizja === false, JSON.stringify(okno));
+check('1752 px: kolumny zbliżone szerokością', Math.abs(ok1752.kids.split('/')[0] - ok1752.kids.split('/')[1]) < 60, ok1752.kids);
+await shot('z4-dzis-1752');
 
 await send('Emulation.setDeviceMetricsOverride', {width: 1440, height: 940, deviceScaleFactor: 1, mobile: false});
 await ev(`go('today')`); await sleep(600); await shot('d1-desktop');

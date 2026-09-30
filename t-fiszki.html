@@ -129,6 +129,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .num{font-family:var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.04em}
 .eyebrow{font:700 10.5px/1.2 var(--body);letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+.nb{white-space:nowrap}   /* nazwy własne typu SM-2 nie mogą łamać się na „SM-” / „2” */
 
 /* ── Scena: telefon wypełnia ekran, „web” i „podgląd na telefon” sterowane klasą ── */
 .stage{position:relative;z-index:1;min-height:100dvh;display:block}
@@ -559,6 +560,8 @@ html.konto-widok .viewport{padding-bottom:24px}
 
 /* ── Szerszy układ na dużych ekranach ───────────────────────────── */
 .grid2{display:grid;gap:12px}
+.panel .row.between h3{flex:1 1 auto;min-width:0}
+.panel .row.between .eyebrow{flex:none;white-space:nowrap}
 .web .viewport>*{max-width:min(1160px,100%)}
 @media (min-width:1700px){.web .viewport>*{max-width:1340px}}
 @media (min-width:1200px){
@@ -1093,7 +1096,7 @@ function vLogin(){
 
 /* ── 1 · Dziś ───────────────────────────────────────────────────── */
 function vToday(){
-  const q=queueFor(), now=Date.now();
+  const q=queueFor(), now=Date.now(), f=forecast(), f7=f.days.slice(0,7), dz4=dziennik(4);
   const done=newToday(), target=done+q.list.length, pct=target?Math.round(done/target*100):100;
   const R=45, C=2*Math.PI*R, nd=nextDue();
   const nNew=Math.min(q.fresh.length,q.left);
@@ -1106,7 +1109,7 @@ function vToday(){
      '<div><p class="eyebrow">'+new Date().toLocaleDateString('pl-PL',{weekday:'long',day:'numeric',month:'long'})+'</p>'+
        '<h2>'+(q.list.length?'Do zrobienia <span class="num" style="color:var(--magenta-ink)">'+q.list.length+'</span>':'Wolne do jutra')+'</h2>'+
        '<p>'+(q.list.length
-         ? pl(q.reviews.length,'powtórka','powtórki','powtórek')+' wyznaczonych przez SM-2'+(nNew?' i '+nNew+' '+pl(nNew,'nowa fiszka','nowe fiszki','nowych fiszek'):'')+'.'
+         ? pl(q.reviews.length,'powtórka','powtórki','powtórek')+' wyznaczonych przez <span class="nb">SM-2</span>'+(nNew?' i '+nNew+' '+pl(nNew,'nowa fiszka','nowe fiszki','nowych fiszek'):'')+'.'
          : (done?'Zrobione '+done+' '+pl(done,'fiszka','fiszki','fiszek')+'. Algorytm wie, kiedy wrócić.':'Nic dziś w kolejce — algorytm rozłożył wszystko na inne dni.'))+'</p></div>'+
    '</div><div class="metrics">'+
      '<div class="metric"><b class="num">'+streak()+'</b><i>'+(streak()===1?'dzień z rzędu':'dni z rzędu')+'</i></div>'+
@@ -1120,6 +1123,13 @@ function vToday(){
          +(nd?'Następna powtórka: <b style="color:var(--text)">'+clock(nd)+', '+when(nd)+'</b>.':'Brak zaplanowanych powtórek.')
          +'</p><button class="btn ghost small" data-act="tab" data-go="decks">Przeglądaj talie</button></div>')+
    '</div></div>'+
+   '<div class="sec"><header><h3>Co dalej</h3><button class="link" data-act="tab" data-go="progress">pełny postęp →</button></header>'+
+     '<div class="panel"><div class="chart" role="img" aria-label="Zaplanowane powtórki w kolejnych siedmiu dniach: '+f7.join(', ')+'">'+
+       f7.map(function(n,i){return '<div class="col" title="'+(i===0?'dziś':f.labels[i])+': '+n+' '+pl(n,'fiszka','fiszki','fiszek')+'">'+
+         '<div class="stick'+(n?'':' zero')+(i===0?' today':'')+'" style="height:'+Math.max(3,n/f.max*100)+'%">'+(n?'<b>'+n+'</b>':'')+'</div>'+
+         '<span class="lab'+(i===0?' hd':'')+'">'+(i===0?'DZIŚ':f.labels[i])+'</span></div>'}).join('')+'</div>'+
+     '<p style="font-size:12px;color:var(--dim);margin-top:10px">Słupki to powtórki wyznaczone przez SM-2 na siedem najbliższych dni.</p></div>'+
+   '</div></div>'+
    '<div class="stack"><div class="sec"><header><h3>Z której talii?</h3><button class="link" data-act="tab" data-go="decks">wszystkie talie →</button></header><div class="list">'+
      S.decks.map(function(d){const st=statsOf(d.id);
        return '<button class="item" data-act="opendeck" data-id="'+d.id+'">'+
@@ -1129,7 +1139,17 @@ function vToday(){
    '</div></div>'+
    '<div class="sec"><header><h3>Import z testu</h3><span class="eyebrow">jedno kliknięcie</span></header>'+
      '<div class="panel"><p style="font-size:13px;color:var(--muted)">Nie przepisuj odpowiedzi, które ci nie wyszły — weź je wprost z historii testów na T-Portalu.</p>'+
-       '<button class="btn primary block" style="margin-top:12px" data-act="import"><svg viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4M4 20h16"/></svg>Zrób fiszki z błędnych odpowiedzi</button></div></div></div>'+
+       '<button class="btn primary block" style="margin-top:12px" data-act="import"><svg viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4M4 20h16"/></svg>Zrób fiszki z błędnych odpowiedzi</button></div></div>'+
+   '<div class="sec"><header><h3>Ostatnio oceniane</h3><button class="link" data-act="tab" data-go="progress">pełny dziennik →</button></header>'+
+     (dz4.length
+       ? '<div class="dz" style="margin-top:11px">'+dz4.map(function(w){const l=w.l,c=w.c;
+           return '<div class="w" '+taliaVar(deck(l.deck))+'><span class="godz">'+clock(l.ts)+'<br><i style="font-style:normal;color:var(--dim)">'+
+             (dayIdx(l.ts)===0?'dziś':new Date(l.ts).toLocaleDateString('pl-PL',{day:'numeric',month:'short'}))+'</i></span>'+
+             '<span class="pyt">'+(c&&c.ikona?iko(c)+' ':'')+(c?esc(c.front):'<i style="color:var(--dim)">fiszka usunięta</i>')+
+               '<small>'+esc(deck(l.deck).name)+(c&&c.status!=='new'?' · następna '+when(c.due):'')+'</small></span>'+
+             '<span class="oc q'+l.q+'">'+GRADES.filter(function(g){return g.q===l.q})[0].lab+'</span></div>'}).join('')+'</div>'
+       : '<div class="panel" style="margin-top:11px"><p style="font-size:12.5px;color:var(--dim)">Zacznij pierwszą sesję — tu pojawią się ostatnio oceniane fiszki.</p></div>')+
+   '</div></div>'+
   '</section>';
 }
 
@@ -1304,7 +1324,7 @@ function vProgress(){
      kpi(dniZNauka(),'dni z nauką')+kpi(passa,'najdłuższa passa')+kpi(srednioNaDzien(),'średnio ocen dziennie')+
    '</div>'+
    '<div class="grid2">'+
-     '<div class="panel"><div class="row between"><h3 style="font-size:14px">Prognoza SM-2 · 14 dni</h3><span class="eyebrow">słupki = powtórki</span></div>'+
+     '<div class="panel"><div class="row between"><h3 style="font-size:14px">Prognoza <span class="nb">SM-2</span> · 14 dni</h3><span class="eyebrow">powtórki</span></div>'+
        '<div class="chart" role="img" aria-label="Liczba zaplanowanych powtórek w kolejnych 14 dniach: '+f.days.join(', ')+'">'+
          f.days.map(function(n,i){return '<div class="col" title="'+(i===0?'dziś':'dzień +'+i)+': '+n+' '+pl(n,'fiszka','fiszki','fiszek')+'">'+
            '<div class="stick'+(n?'':' zero')+(i===0?' today':'')+'" style="height:'+Math.max(3,n/f.max*100)+'%">'+(n?'<b>'+n+'</b>':'')+'</div>'+

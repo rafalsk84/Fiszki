@@ -17,13 +17,14 @@ import {fileURLToPath} from 'node:url';
 const TUTAJ = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8765);
 const HOST = process.env.HOST || '127.0.0.1';
+const BAZA = process.env.BAZA || join(TUTAJ, 'dane', 't-fiszki.db');   // testy: BAZA=dane/testy.db
 const PLIK_APLIKACJI = join(TUTAJ, 't-fiszki.html');
 const DNI_SESJI = 30;
 const MAX_CIALA = 2 * 1024 * 1024;          // 2 MB na zestaw fiszek — z zapasem
 const LIMIT_PROB = 8, OKNO_PROB = 15 * 60e3; // 8 błędnych logowań z rzędu na 15 minut
 
-mkdirSync(join(TUTAJ, 'dane'), {recursive: true});
-const db = new DatabaseSync(join(TUTAJ, 'dane', 't-fiszki.db'));
+mkdirSync(dirname(BAZA), {recursive: true});
+const db = new DatabaseSync(BAZA);
 db.exec(`
   pragma journal_mode = wal;
   create table if not exists konta(

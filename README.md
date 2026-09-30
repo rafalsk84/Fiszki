@@ -8,7 +8,7 @@ Fiszki zbierające **złe odpowiedzi z testów na T-Portalu** plus powtórki lic
 |---|---|
 | `t-fiszki.html` | cała aplikacja: HTML + CSS + JS w jednym pliku, zero zależności, działa też otwierana przez `file://` |
 | `serwer.mjs` | konta i synchronizacja: `node:http` + `node:sqlite` + `node:crypto`, też zero zależności |
-| `cdp-check.mjs` | testy na żywym Chrome (133 asercje: konto, sync, konflikt 409, statystyki, kontrast AA, szerokości 320–2560 px) |
+| `cdp-check.mjs` | testy na żywym Chrome (138 asercji: konto, sync, konflikt 409, statystyki, kontrast AA, szerokości 320–2560 px) |
 | `.fonts/` | Manrope i Unbounded, które aplikacja i tak ma wklejone w HTML-u — zostawione jako źródło |
 
 ## Start
@@ -24,11 +24,13 @@ Bez serwera też da się korzystać: otwórz `t-fiszki.html` podwójnym kliknię
 ## Testy
 
 ```bash
-node serwer.mjs          # osobne okno, musi działać
-node cdp-check.mjs       # odpala własny profil Chrome w trybie bezokienkowym i weryfikuje aplikację
+rm -f dane/testy.db*
+BAZA=dane/testy.db node serwer.mjs   # osobne okno — serwer na bazie testowej, żeby nie dotykać danych z t-fiszki.db
+node cdp-check.mjs                   # odpala własny profil Chrome w trybie bezokienkowym i weryfikuje aplikację
+node zywo.mjs                        # dwa urządzenia (telefon 390 + laptop 1440) na osobnych profilach: formularz z emotikoną, sync w obie strony, dziesięć dni sesji
 ```
 
-Harness sam zakłada konto z unikalną nazwą przebiegu, usuwa je na końcu i sprawdza, że baza wróciła do zera kont. Zrzuty dowodowe lądują w `shots/` (nie w repo — odtwarzasz je tym samym poleceniem).
+Testy same zakładają konta z unikalną nazwą przebiegu, usuwają je na końcu i sprawdzają, że baza wróciła do zera kont. Zrzuty dowodowe lądują w `shots/` (nie w repo — odtwarzasz je tym samym poleceniem).
 
 ## Dane
 
