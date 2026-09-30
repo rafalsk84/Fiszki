@@ -177,12 +177,16 @@ html.telefon .phone{width:min(430px,100vw);border-radius:0}
 .iconbtn{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;border:1px solid var(--line);background:var(--glass);flex:none}
 .iconbtn svg{width:19px;height:19px;stroke:var(--text);stroke-width:1.8;fill:none;stroke-linecap:round}
 .iconbtn:active{transform:scale(.94)}
+.iconbtn.aktywny{border-color:var(--magenta);background:var(--glass-2);box-shadow:0 0 14px -4px var(--acc-glow)}
+.iconbtn.aktywny svg{stroke:var(--magenta-ink)}
 #icSun{display:none}
 html[data-motyw="jasny"] #icSun{display:block}
 html[data-motyw="jasny"] #icMoon{display:none}
-.only-web{display:none}
-html.web .only-web{display:grid}
-
+@media (max-width:372px){          /* trzeci przycisk w pasku nie może wypychać tytułu */
+  .appbar{gap:8px}
+  .chip-txt{display:none}
+  .chip{padding:6px}
+}
 /* ── Widok + nawigacja ──────────────────────────────────────────── */
 .viewport{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;
   padding:15px 14px calc(env(safe-area-inset-bottom) + 92px)}
@@ -437,46 +441,50 @@ input:checked+.switch::after{transform:translateX(17px)}
 @keyframes pop{from{transform:translateY(14px);opacity:0}}
 @keyframes deal{from{transform:translateY(9px) scale(.98);opacity:.25}}
 .deal{animation:deal .34s cubic-bezier(.2,.8,.2,1)}
-/* ── Wersja webowa (html.web) — pełna szerokość okna, nie ramka telefonu ── */
+/* ── Wersja webowa (html.web) — pełna szerokość okna, nie ramka telefonu ──
+   Dwie warstwy: ta poniżej działa w każdej szerokości (także na telefonie),
+   pasek boczny dochodzi dopiero od 760 px — wcześniej byłby szerszy niż treść. */
 html.web body{font-size:17px;line-height:1.6}
 .web .stage{display:block;padding:0}
-.web .phone{width:100%;height:100dvh;border:0;border-radius:0;box-shadow:none;overflow:visible;background:var(--ink);
-  display:grid;grid-template-columns:252px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"nav bar" "nav main"}
-.web .appbar{grid-area:bar;padding:14px 30px}
+.web .phone{width:100%;height:100dvh;border:0;border-radius:0;box-shadow:none;background:var(--ink)}
 .web .mark{display:none}
 .web .bar-title{display:block}
-.web .viewport{grid-area:main;padding:28px 32px 56px}
-.web .viewport>*{max-width:920px;margin-inline:auto}
-.web .tabbar{grid-area:nav;position:relative;inset:auto;display:flex;flex-direction:column;gap:3px;
-  padding:22px 14px;border-top:0;border-right:1px solid var(--line);background:var(--grad-frame);backdrop-filter:none}
-.web .navfoot{display:flex;flex-direction:column;gap:7px;margin-top:auto;padding:16px 12px 6px;border-top:1px solid var(--line);
-  font-size:12px;color:var(--muted)}
-.web .navfoot b{font-family:var(--display);font-weight:700;color:var(--text);letter-spacing:-.03em}
-.web .navhead{display:flex;align-items:center;gap:10px;padding:2px 8px 18px}
-.web .navhead .glyph{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:none;
-  background:conic-gradient(from 210deg,var(--magenta),var(--aura) 58%,var(--magenta));box-shadow:var(--glow)}
-.web .navhead svg{width:18px;height:18px;stroke:var(--on-glyph);stroke-width:2.1;fill:none;stroke-linejoin:round}
-.web .navhead b{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:-.05em}
-.web .tab{flex-direction:row;justify-content:flex-start;gap:13px;padding:11px 12px;min-height:44px;border-radius:13px}
-.web .tab svg{width:20px;height:20px}
-.web .tab span{font-size:14.5px;letter-spacing:-.01em}
-.web .tab .badge{position:static;margin-left:auto;top:auto;right:auto;height:20px;line-height:20px;font-size:11px;min-width:20px}
-.web .toasts{position:fixed;left:auto;right:28px;bottom:28px;width:370px}
 .web .scrim{position:fixed;inset:0}
 .web .sheet{position:fixed;left:50%;top:50%;right:auto;bottom:auto;width:min(640px,92vw);max-height:86dvh;
   transform:translate(-50%,-46%);border:1px solid var(--line-strong);border-radius:var(--r-xl);box-shadow:var(--shadow-pop)}
 .web .scrim.open .sheet{transform:translate(-50%,-50%)}
 .web .sheet>header{padding:18px 20px 14px}
 .web .sheet>header::before{display:none}
-.web .list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .web .kpis{grid-template-columns:repeat(auto-fit,minmax(146px,1fr))}
 .web .card3d{height:clamp(240px,32vh,330px)}
 .web .grades{max-width:580px;margin-inline:auto}
 .web .hintline{margin-top:14px}
 .web .metrics{gap:10px}
-.web .btn.block{max-width:560px;margin-inline:auto}
 .web .metric{min-width:96px}
+.web .btn.block{max-width:560px;margin-inline:auto}
 .web .rail{display:none}
+@media (min-width:760px){                  /* web z paskiem bocznym: od tej szerokości nawigacja ma sens */
+  .web .phone{display:grid;grid-template-columns:252px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
+    grid-template-areas:"nav bar" "nav main";overflow:visible}
+  .web .appbar{grid-area:bar;padding:14px 30px}
+  .web .viewport{grid-area:main;padding:28px 32px 56px}
+  .web .tabbar{grid-area:nav;position:relative;inset:auto;display:flex;flex-direction:column;gap:3px;
+    padding:22px 14px;border-top:0;border-right:1px solid var(--line);background:var(--grad-frame);backdrop-filter:none}
+  .web .navfoot{display:flex;flex-direction:column;gap:7px;margin-top:auto;padding:16px 12px 6px;border-top:1px solid var(--line);
+    font-size:12px;color:var(--muted)}
+  .web .navfoot b{font-family:var(--display);font-weight:700;color:var(--text);letter-spacing:-.03em}
+  .web .navhead{display:flex;align-items:center;gap:10px;padding:2px 8px 18px}
+  .web .navhead .glyph{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:none;
+    background:conic-gradient(from 210deg,var(--magenta),var(--aura) 58%,var(--magenta));box-shadow:var(--glow)}
+  .web .navhead svg{width:18px;height:18px;stroke:var(--on-glyph);stroke-width:2.1;fill:none;stroke-linejoin:round}
+  .web .navhead b{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:-.05em}
+  .web .tab{flex-direction:row;justify-content:flex-start;gap:13px;padding:11px 12px;min-height:44px;border-radius:13px}
+  .web .tab svg{width:20px;height:20px}
+  .web .tab span{font-size:14.5px;letter-spacing:-.01em}
+  .web .tab .badge{position:static;margin-left:auto;top:auto;right:auto;height:20px;line-height:20px;font-size:11px;min-width:20px}
+  .web .toasts{position:fixed;left:auto;right:28px;bottom:28px;width:min(370px,calc(100vw - 56px))}
+  .web .list{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 @media (min-width:1400px){
   .web .stage{padding-right:392px}
   .web .rail{display:block;position:fixed;top:0;right:0;bottom:0;width:392px;overflow-y:auto;padding:38px 32px 44px;
@@ -621,12 +629,12 @@ html.konto-widok .viewport{padding-bottom:24px}
       </div>
       <b class="bar-title" id="barTitle">Dziś</b>
       <div class="spacer"></div>
-      <button class="chip" id="syncChip" type="button" aria-label="Stan synchronizacji — otwórz konto"><span class="dot"></span>T-Portal</button>
+      <button class="chip" id="syncChip" type="button" aria-label="Stan synchronizacji — otwórz konto"><span class="dot"></span><span class="chip-txt">T-Portal</span></button>
       <button class="iconbtn" id="themeBtn" aria-label="Przełącz motyw" title="Motyw jasny / ciemny">
         <svg id="icSun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/></svg>
         <svg id="icMoon" viewBox="0 0 24 24"><path d="M20 13.5A8.5 8.5 0 1 1 10.5 4a7 7 0 0 0 9.5 9.5z"/></svg>
       </button>
-      <button class="iconbtn only-web" id="layoutBtn" aria-label="Przełącz szerokość widoku" title="Widok webowy / podgląd na telefon">
+      <button class="iconbtn" id="layoutBtn" aria-label="Przełącz szerokość widoku" title="Widok webowy / podgląd na telefon">
         <svg viewBox="0 0 24 24"><rect x="2.5" y="4" width="13" height="10" rx="2"/><path d="M6 18h7M9.5 14v4"/><rect x="16.5" y="10" width="5.5" height="10" rx="1.6"/></svg>
       </button>
       <button class="iconbtn" id="menuBtn" aria-label="Menu i ustawienia">
@@ -922,7 +930,7 @@ function pokazSync(sts){
   else if(sts==='offline'){lab='Bez serwera';tyt='Serwer nie odpowiada — pracujesz na zapisie z tego urządzenia, zmiany wyślą się same po powrocie połączenia.';klasa=' warn'}
   else if(sts==='blad'){lab='Błąd zapisu';tyt='Serwer odrzucił zapis. Spróbuj za chwilę.';klasa=' warn'}
   else{lab=czasOstatniejSync?'Zapisano '+clock(czasOstatniejSync):'Zapisano';tyt='Postęp konta '+konto+' jest na serwerze.'}
-  chip.className='chip'+klasa;chip.innerHTML='<span class="dot"></span>'+esc(lab);chip.title=tyt;
+  chip.className='chip'+klasa;chip.innerHTML='<span class="dot"></span><span class="chip-txt">'+esc(lab)+'</span>';chip.title=tyt;
 }
 
 /* ── Motyw i układ ───────────────────────────────────────────────── */
@@ -935,14 +943,32 @@ function applyTheme(){
   $('#themeBtn').setAttribute('aria-label',t==='jasny'?'Włącz motyw ciemny':'Włącz motyw jasny');
   $('#themeBtn').title=t==='jasny'?'Motyw: jasny — kliknij za ciemny':'Motyw: ciemny — kliknij za jasny';
 }
+/* Próg automatycznego układu webowego. Poniżej niego „webowy" i „telefon" wyglądają
+   tak samo, więc na wąskim ekranie przełącznik chodzi tylko między auto a web. */
+const PROG_WEB=1000, PROG_PASEK=760;
+function opisWidoku(wyglad,w){
+  if(wyglad==='telefon')return 'podgląd na telefon w oknie '+w+' px';
+  if(wyglad==='auto')return 'auto — telefon do '+PROG_WEB+' px, wyżej webowy';
+  return w>=PROG_PASEK?'webowy na pełnej szerokości, nawigacja jako pasek z lewej'
+    :'webowy na pełnej szerokości — pasek nawigacji pojawi się od '+PROG_PASEK+' px, czyli po obróceniu telefonu albo na tablecie';
+}
 function applyLayout(){
-  const w=S.settings.wyglad==='web'||(S.settings.wyglad==='auto'&&window.innerWidth>=1000);
+  const w=window.innerWidth;
+  const use=S.settings.wyglad==='web'||(S.settings.wyglad==='auto'&&w>=PROG_WEB);
   const root=document.documentElement;
-  root.classList.toggle('web',w);
-  root.classList.toggle('telefon',!w&&S.settings.wyglad!=='web'&&window.innerWidth>=1000);
+  root.classList.toggle('web',use);
+  root.classList.toggle('telefon',!use&&S.settings.wyglad!=='web'&&w>=PROG_WEB);
   const b=$('#layoutBtn');
-  if(b){b.setAttribute('aria-label',w?'Przełącz na podgląd na telefon':'Przełącz na widok webowy');
-    b.title=w?'Widok webowy — kliknij, żeby zobaczyć telefon':'Podgląd na telefon — kliknij za widok webowy'}
+  if(b){
+    const wasciwy=w<PROG_PASEK;
+    b.setAttribute('aria-label',use?(wasciwy?'Wróć do widoku na telefon':'Przełącz na podgląd na telefon')
+      :(wasciwy?'Zobacz wersję jak na komputerze':'Przełącz na widok webowy'));
+    b.title=use&&wasciwy?'Widok pełnoekranowy — kliknij, żeby wrócić do telefonu'
+      :use?'Widok webowy — kliknij, żeby zobaczyć telefon'
+      :wasciwy?'Wersja jak na komputerze — kliknij, żeby zobaczyć układ pełnoekranowy'
+      :'Podgląd na telefon — kliknij za widok webowy';
+    b.classList.toggle('aktywny',use);
+  }
 }
 function cycleTheme(){
   S.settings.motyw=S.settings.motyw==='auto'?(themeReal()==='jasny'?'ciemny':'jasny'):(S.settings.motyw==='jasny'?'ciemny':'jasny');
@@ -951,9 +977,11 @@ function cycleTheme(){
 }
 function cycleLayout(){
   const w=window.innerWidth;
-  S.settings.wyglad=S.settings.wyglad==='auto'?(w>=1000?'telefon':'web'):(S.settings.wyglad==='web'?'telefon':'auto');
+  S.settings.wyglad=w<PROG_WEB
+    ?(S.settings.wyglad==='web'?'auto':'web')
+    :(S.settings.wyglad==='auto'?'telefon':S.settings.wyglad==='telefon'?'web':'auto');
   applyLayout();save();render();
-  toast('Widok: '+(S.settings.wyglad==='auto'?'auto (telefon do 1000 px, wyżej webowy)':S.settings.wyglad==='web'?'webowy na pełnej szerokości':'podgląd na telefon')+'.','ok');
+  toast('Widok: '+opisWidoku(S.settings.wyglad,w)+'.','ok');
 }
 mqLight.addEventListener('change',function(){if(S.settings.motyw==='auto'){applyTheme();render()}});
 let rT=null;
@@ -1591,7 +1619,8 @@ function openMenu(){
     '<label class="switchrow">Motyw<select class="wide" id="mTheme">'+
       [['auto','auto — za systemem'],['jasny','jasny'],['ciemny','ciemny']].map(function(o){return '<option value="'+o[0]+'"'+(S.settings.motyw===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label>'+
     '<label class="switchrow">Układ okna<select class="wide" id="mLayout">'+
-      [['auto','auto — telefon do 1000 px'],['web','webowy na pełnej szerokości'],['telefon','podgląd na telefon']].map(function(o){return '<option value="'+o[0]+'"'+(S.settings.wyglad===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label>'+
+      [['auto','auto — telefon do '+PROG_WEB+' px'],['web','komputerowy / pełna szerokość'],['telefon','podgląd na telefon']].map(function(o){return '<option value="'+o[0]+'"'+(S.settings.wyglad===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label>'+
+    '<p id="mLayoutHint" style="font-size:12px;color:var(--dim);line-height:1.55;margin:-2px 0 10px">'+opisWidoku(S.settings.wyglad,window.innerWidth)+'</p>'+
     '<label class="switchrow">Symuluj awarię pobierania testu<input type="checkbox" id="mErr"'+(S.settings.simError?' checked':'')+'><span class="switch"></span></label>'+
     '<div style="margin-top:8px"><button class="menub danger" data-act="reset"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v5h5"/></svg><span id="rstLab">Wyzeruj dane demo</span></button></div>'+
     '<p style="font-size:12px;color:var(--dim);line-height:1.55">Terminy powtórek liczy naprawdę algorytm SM-2. Pobieranie wyników testów jest tu przykładowe — w wersji szkolnej wejdzie przez konto T-Portalu i API dziennika.</p>',
@@ -1600,7 +1629,8 @@ function openMenu(){
   $('#mTheme').onchange=function(e){S.settings.motyw=e.target.value;applyTheme();save();render();
     toast('Motyw: '+(S.settings.motyw==='auto'?'auto — teraz '+themeReal():S.settings.motyw)+'.','ok')};
   $('#mLayout').onchange=function(e){S.settings.wyglad=e.target.value;applyLayout();save();render();
-    toast('Układ: '+e.target.value+'.','ok')};
+    const h=$('#mLayoutHint');if(h)h.textContent=opisWidoku(S.settings.wyglad,window.innerWidth);
+    toast('Widok: '+opisWidoku(S.settings.wyglad,window.innerWidth)+'.','ok')};
   $('#mErr').onchange=function(e){S.settings.simError=e.target.checked;save();render();
     toast(e.target.checked?'Tryb awarii: import testów zgłosi błąd sieci.':'Pobieranie testów znowu działa (symulacja).',e.target.checked?'bad':'ok')};
 }
