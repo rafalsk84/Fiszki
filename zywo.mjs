@@ -138,6 +138,7 @@ const serwerZ = await tel.js(`ap('GET','/api/state').then(s=>JSON.stringify((()=
 check('telefon zapisał zdjęcie i film na serwerze', serwerZ.img === wgrane.url && serwerZ.yt === 'dQw4w9WgXcQ', JSON.stringify(serwerZ));
 await lap.click('#syncChip', 900);
 await lap.click('[data-act="syncTeraz"]', 2600);
+await lap.click('#sheetClose', 600);            // arkusz „Konto i synchronizacja" zasłania kartę na zrzucie
 const lapAdres = await lap.js(`JSON.stringify((()=>{const c=S.cards.find(x=>/IPv6/.test(x.front))||{};
   return{img:c.img||'brak',yt:c.yt||'brak'} })())`);
 check('laptop pobrał adres zdjęcia i identyfikator filmu', lapAdres.img === wgrane.url && lapAdres.yt === 'dQw4w9WgXcQ', JSON.stringify(lapAdres));
@@ -158,8 +159,13 @@ const lapPrzed = await lap.js(`JSON.stringify({iframe:document.querySelectorAll(
   youtube:performance.getEntriesByType('resource').filter(x=>/youtube|ytimg/.test(x.name)).length})`);
 check('na laptopie film też czeka na kliknięcie — YouTube nie jest pytany sam', lapPrzed.iframe === 0 && lapPrzed.przycisk === true && lapPrzed.youtube === 0, JSON.stringify(lapPrzed));
 await lap.click('.face.back .yt', 900);
-const lapFilm = await lap.js(`JSON.stringify((()=>{const p=document.querySelector('.face.back .ytplayer iframe');
-  return{src:p?p.src:'',youtube:performance.getEntriesByType('resource').filter(x=>/youtube/.test(x.name)).length}})())`);
+/* wpis w rejestrze zasobów pojawia się z chwilą opóźnienia po tym, jak Chrome zablokuje żądanie */
+let lapFilm = {src: '', youtube: 0};
+for (let i = 0; i < 12 && lapFilm.youtube < 1; i++) {
+  await sleep(500);
+  lapFilm = await lap.js(`JSON.stringify((()=>{const p=document.querySelector('.face.back .ytplayer iframe');
+    return{src:p?p.src:'',youtube:performance.getEntriesByType('resource').filter(x=>/youtube/.test(x.name)).length}})())`);
+}
 check('kliknięty film odpala się z youtube-nocookie na drugim urządzeniu', /youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(lapFilm.src) && lapFilm.youtube >= 1, JSON.stringify(lapFilm));
 await lap.shot('zywo-12-laptop-film-po-kliknieciu');
 

@@ -458,13 +458,16 @@ check('film jest na odwrocie, pod odpowiedzią', tyle.maFilm === true && tyle.wy
 check('przed kliknięciem nie ma odtwarzacza ani ani jednego zapytania do YouTube', tyle.iframe === '' && tyle.zapytania === 0, JSON.stringify({i: tyle.iframe, z: tyle.zapytania}));
 await shot('m3-odpowiedz-z-filmem');
 await click('.face.back .yt', 900);
-const gracz = await json(`JSON.stringify((()=>{const p=document.querySelector('.face.back .ytplayer iframe');
+/* Chrome dopisuje zablokowane żądanie do rejestru zasobów z opóźnieniem — czekamy, aż wpis się pojawi */
+const GRACZ = `JSON.stringify((()=>{const p=document.querySelector('.face.back .ytplayer iframe');
   const r=p?document.querySelector('.ytplayer').getBoundingClientRect():{width:0,height:0};
   return{src:p?p.src:'',pelnyEkran:p?p.allowFullscreen===true:false,ref:p?(p.getAttribute('referrerpolicy')||''):'',
     tytul:p?(p.title||''):'',szerokosc:Math.round(r.width),wysokosc:Math.round(r.height),
     przycisk:!!document.querySelector('.face.back .yt'),
     zapytania:performance.getEntriesByType('resource').filter(x=>/youtube/.test(x.name)).length,
-    fokus:document.activeElement.className}})())`);
+    fokus:document.activeElement.className}})())`;
+let gracz = {zapytania: 0};
+for (let i = 0; i < 12 && gracz.zapytania < 1; i++) { await sleep(500); gracz = await json(GRACZ); }
 check('kliknięcie wstawia odtwarzacz youtube-nocookie z autoodtwarzaniem', /youtube-nocookie\.com\/embed\/Xb2s9y0i0nA\?autoplay=1/.test(gracz.src) && gracz.ref === 'strict-origin-when-cross-origin', String(gracz.src));
 check('odtwarzacz mieści się w karcie i przejmuje fokus', gracz.szerokosc >= 300 && gracz.szerokosc <= 376 && gracz.wysokosc >= 120 && /ytplayer/.test(gracz.fokus), JSON.stringify(gracz));
 check('po kliknięciu zapytanie do YouTube naprawdę poszło', gracz.zapytania >= 1 && gracz.przycisk === false, JSON.stringify({z: gracz.zapytania, p: gracz.przycisk}));
