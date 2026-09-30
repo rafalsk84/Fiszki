@@ -368,6 +368,134 @@ const zdjęta = await json(`JSON.stringify((()=>{const c=findCard(${IDK});
 check('zdjęta emotikona znika z danych i ze swojego wiersza', zdjęta.wDanych === true && zdjęta.wListie === false, JSON.stringify(zdjęta));
 await ev(`findCard(${IDK}).ikona='📚';save();render()`); await sleep(400);
 
+/* ══ 2d · Zdjęcie i film na fiszce ═════════════════════════════════ */
+/* Żadnego odwołania do YouTube w testach nie ma: host jest zablokowany, a dowodem jest
+   samo zapytanie, które przeglądarka wysyła (wpis w performance) dopiero po kliknięciu. */
+await send('Network.enable');
+await send('Network.setBlockedURLs', {urls: ['*youtube.com*', '*youtube-nocookie.com*', '*ytimg.com*']});
+await ev(`session=null;go('decks')`); await sleep(500);
+await click(`[data-act="editcard"][data-id="${przedEdycja.id}"]`, 600);
+const form = await json(`JSON.stringify((()=>{const p=document.getElementById('cFoto'),m=document.getElementById('cFotoMini'),
+  d=document.getElementById('cFotoDel'),i=document.getElementById('cFotoInfo'),b=document.getElementById('cFotoBtn');
+  return{plik:!!p,akceptp:(p&&p.accept)||'',ukrytyPlik:p?getComputedStyle(p).display:'',przycisk:(b&&b.textContent)||'',
+    podgladSchowany:m?m.classList.contains('ukryte'):null,usunSchowany:d?d.classList.contains('ukryte'):null,
+    radz:(i&&i.textContent)||'',yt:!!document.getElementById('cYT'),
+    ytPlaceholder:(document.getElementById('cYT')||{}).placeholder||'',
+    tekst:(document.getElementById('sheetIn')||{}).textContent||''}})())`);
+check('formularz fiszki ma zdjęcie i film obok notatki', form.plik === true && form.yt === true && /image\/(jpeg|png|webp)/.test(form.akceptp), JSON.stringify(form));
+check('dopóki zdjęcia nie ma, podgląd i „Usuń zdjęcie” są schowane', form.podgladSchowany === true && form.usunSchowany === true && form.przycisk === 'Dodaj zdjęcie', JSON.stringify(form));
+check('pole pliku jest ukryte, a klika się przycisk', form.ukrytyPlik === 'none', String(form.ukrytyPlik));
+check('podpowiedź mówi po ludzku, co zrobi telefon', /aparat/i.test(form.radz) && /zdjęcie/i.test(form.radz), form.radz);
+check('pola mediów są podpisane po polsku', /Zdjęcie \(opcjonalnie\)/.test(form.tekst) && /Film z YouTube \(opcjonalnie\)/.test(form.tekst), JSON.stringify(form.tekst.slice(0, 60)));
+check('w podpisach mediów nie ma angielskiego żargonu', !/upload|preview|attach|thumb|url\b|link do/i.test(form.tekst), JSON.stringify((form.tekst.match(/upload|preview|attach|thumb|url/gi)||[])));
+await shot('m1-formularz-media');
+const wgrane = await json(`(async()=>{const cv=document.createElement('canvas');cv.width=1400;cv.height=1000;
+  const g=cv.getContext('2d');g.fillStyle='#13111a';g.fillRect(0,0,1400,1000);g.fillStyle='#ff2e7e';g.fillRect(0,0,700,500);
+  const bl=await new Promise(r=>cv.toBlob(r,'image/png'));
+  await dodajZdjecie(new File([bl],'probne.png',{type:'image/png'}));
+  await document.getElementById('cFotoMini').decode().catch(()=>{});
+  return JSON.stringify({url:fotoStan,png:bl.size,mini:Math.round(document.getElementById('cFotoMini').getBoundingClientRect().width),
+    naturalny:document.getElementById('cFotoMini').naturalWidth,wysokosc:document.getElementById('cFotoMini').naturalHeight,
+    przycisk:document.getElementById('cFotoBtn').textContent,
+    usunSchowany:document.getElementById('cFotoDel').classList.contains('ukryte'),
+    radz:document.getElementById('cFotoInfo').textContent})})()`);
+check('zdjęcie wędruje na serwer, w karcie zostaje sam adres', /^\/api\/media\/[0-9a-f]{16}$/.test(wgrane.url), wgrane.url);
+check('klient zmniejsza 1400×1000 do 900 px, a nie wysyła oryginału', wgrane.naturalny === 900 && wgrane.wysokosc === 643 && wgrane.png > 2000, JSON.stringify(wgrane));
+check('po dodaniu widać podgląd, a przyciski się zmieniają', wgrane.mini >= 60 && wgrane.przycisk === 'Zmień zdjęcie' && wgrane.usunSchowany === false && /serwer/i.test(wgrane.radz), JSON.stringify(wgrane));
+await wpisz('#cYT', 'https://www.youtube.com/watch?v=Xb2s9y0i0nA&list=RDx&index=3');
+await click('[data-act="cardSave"]', 900);
+const zapis = await json(`JSON.stringify((()=>{const c=findCard(${IDK});return{yt:c.yt||'',img:c.img||'',dlugosc:String(c.img||'').length,zamkniety:document.getElementById('scrim').hidden}})())`);
+check('link z YouTube zapisuje się jako sam identyfikator', zapis.yt === 'Xb2s9y0i0nA' && zapis.zamkniety === true, JSON.stringify(zapis));
+check('zdjęcie w karcie to krótki adres, nie wklejona zawartość', zapis.img === wgrane.url && zapis.dlugosc < 40, JSON.stringify(zapis));
+await click(`[data-act="editcard"][data-id="${przedEdycja.id}"]`, 600);
+const odSwiezony = await json(`JSON.stringify({mini:document.getElementById('cFotoMini').naturalWidth,schowany:document.getElementById('cFotoMini').classList.contains('ukryte'),
+  yt:document.getElementById('cYT').value})`);
+check('otwarcie edycji pokazuje istniejące zdjęcie i link', odSwiezony.mini === 900 && odSwiezony.schowany === false && odSwiezony.yt.includes('Xb2s9y0i0nA'), JSON.stringify(odSwiezony));
+await wpisz('#cYT', 'https://player.vimeo.com/video/76979871');
+await click('[data-act="cardSave"]', 600);
+const odrzucone = await json(`JSON.stringify({blad:(document.getElementById('cYTErr')||{}).textContent||'',panel:document.getElementById('scrim').classList.contains('open'),yt:findCard(${IDK}).yt})`);
+check('link spoza YouTube nie zapisuje się i mówi dlaczego', /YouTube/.test(odrzucone.blad) && odrzucone.panel === true && odrzucone.yt === 'Xb2s9y0i0nA', JSON.stringify(odrzucone));
+await click('#sheetClose', 600);
+const filtrYt = await json(`JSON.stringify([YT_ID('https://youtu.be/dQw4w9WgXcQ'),YT_ID('https://m.youtube.com/shorts/dQw4w9WgXcQ'),
+  YT_ID('https://www.youtube.com/embed/dQw4w9WgXcQ'),YT_ID('dQw4w9WgXcQ'),YT_ID('https://www.youtube.com/live/dQw4w9WgXcQ'),
+  YT_ID('https://vimeo.com/76979871'),YT_ID('https://youtube.com/'),YT_ID('<script>alert(1)<\/script>'),
+  YT_ID('https://evil.example/youtu.be/dQw4w9WgXcQ')])`);
+check('parser YouTube bierze watch, youtu.be, shorts, embed i live', filtrYt.slice(0, 5).every(x => x === 'dQw4w9WgXcQ'), JSON.stringify(filtrYt.slice(0, 5)));
+check('parser YouTube odrzuca obce strony i coś, co nie jest identyfikatorem', filtrYt.slice(5).every(x => !x), JSON.stringify(filtrYt.slice(5)));
+const filtrZdj = await json(`JSON.stringify([safeZdjecie('${wgrane.url}'),safeZdjecie('data:image/jpeg;base64,${'A'.repeat(96)}'),
+  safeZdjecie('https://obcy.example/zdjecie.jpg'),safeZdjecie('javascript:alert(1)'),safeZdjecie('/api/media/../t-fiszki.db'),
+  safeZdjecie('/api/media/zzzzzzzzzzzzzzzz'),safeZdjecie(undefined)])`);
+check('adres zdjęcia: tylko własny serwer albo jpeg z data:', filtrZdj[0] && filtrZdj[1] && !filtrZdj[2] && !filtrZdj[3] && !filtrZdj[4] && !filtrZdj[5] && !filtrZdj[6], JSON.stringify(filtrZdj.map(x => x ? 1 : 0)));
+const lokalnie = await json(`(async()=>{const zap=konto;konto=null;
+  const cv=document.createElement('canvas');cv.width=200;cv.height=160;const g=cv.getContext('2d');
+  g.fillStyle='#4fd6eb';g.fillRect(0,0,200,160);
+  const bl=await new Promise(r=>cv.toBlob(r,'image/png'));
+  let url='';try{url=await wgrajZdjecie(new File([bl],'bez-konta.png',{type:'image/png'}))}finally{konto=zap}
+  return JSON.stringify({url:url.slice(0,23),pelny:url.length})})()`);
+check('bez konta zdjęcie zostaje w przeglądarce jako data:', lokalnie.url === 'data:image/jpeg;base64,' && lokalnie.pelny < 200000 && lokalnie.pelny > 500, JSON.stringify(lokalnie));
+await ev(`findCard(${IDK}).due=Date.now()-2000;save();session=null;startSession(false,'sec')`); await sleep(700);
+const ktoreZ = await ev(`session?session.ids.indexOf(${IDK}):-1`);
+check('fiszka ze zdjęciem jest w kolejce tej talii', ktoreZ >= 0, String(ktoreZ));
+await ev(`session.i=${ktoreZ};session.revealed=false;render()`); await sleep(900);
+const przod = await json(`JSON.stringify((()=>{const k=document.querySelector('.card3d'),f=document.querySelector('.face.front'),img=f.querySelector('img.foto');
+  const r=img?img.getBoundingClientRect():{width:0,height:0};
+  return{maFoto:!!img,szerokosc:Math.round(r.width),wysokosc:Math.round(r.height),naturalny:img?img.naturalWidth:0,
+    zrodlo:img?(img.currentSrc||img.getAttribute('src')||''):'',
+    klasa:k.className,wysokiKarty:Math.round(k.getBoundingClientRect().height),
+    aria:k.getAttribute('aria-label')||'',filmNaPrzodzie:!!f.querySelector('.yt')}})())`);
+check('zdjęcie jest na przedniej stronie, obok pytania', przod.maFoto === true && przod.wysokosc >= 60 && przod.naturalny === 900, JSON.stringify({w: przod.wysokosc, n: przod.naturalny}));
+check('zdjęcie dochodzi z serwera, nie z karty', przod.zrodlo.endsWith(wgrane.url) === true && przod.filmNaPrzodzie === false, String(przod.zrodlo));
+check('karta z mediami ma wyższe pole i opis dla czytnika ekranu', /z-media/.test(przod.klasa) && przod.wysokiKarty >= 320 && /Zdjęcie przy pytaniu/.test(przod.aria), JSON.stringify({k: przod.klasa, h: przod.wysokiKarty}));
+await shot('m2-karta-ze-zdjeciem');
+aud = await json(AUDIT); check('kontrast AA 390 ciemny (karta ze zdjęciem)', aud.zlych === 0, JSON.stringify(aud.najgorsze));
+await click('[data-act="reveal"]', 700);
+const tyle = await json(`JSON.stringify((()=>{const b=document.querySelector('.face.back'),yt=b.querySelector('.yt'),p=b.querySelector('iframe');
+  const r=yt?yt.getBoundingClientRect():{width:0,height:0};
+  return{maFilm:!!yt,wysoki:Math.round(r.height),tekst:yt?yt.textContent.trim():'',aria:yt?(yt.getAttribute('aria-label')||''):'',
+    iframe:p?p.src:'',zapytania:performance.getEntriesByType('resource').filter(x=>/youtube|ytimg/.test(x.name)).length,
+    zdjecieNaTyle:!!b.querySelector('img.foto')}})())`);
+check('film jest na odwrocie, pod odpowiedzią', tyle.maFilm === true && tyle.wysoki >= 44 && /film na YouTube/.test(tyle.tekst) && tyle.zdjecieNaTyle === false, JSON.stringify(tyle));
+check('przed kliknięciem nie ma odtwarzacza ani ani jednego zapytania do YouTube', tyle.iframe === '' && tyle.zapytania === 0, JSON.stringify({i: tyle.iframe, z: tyle.zapytania}));
+await shot('m3-odpowiedz-z-filmem');
+await click('.face.back .yt', 900);
+const gracz = await json(`JSON.stringify((()=>{const p=document.querySelector('.face.back .ytplayer iframe');
+  const r=p?document.querySelector('.ytplayer').getBoundingClientRect():{width:0,height:0};
+  return{src:p?p.src:'',pelnyEkran:p?p.allowFullscreen===true:false,ref:p?(p.getAttribute('referrerpolicy')||''):'',
+    tytul:p?(p.title||''):'',szerokosc:Math.round(r.width),wysokosc:Math.round(r.height),
+    przycisk:!!document.querySelector('.face.back .yt'),
+    zapytania:performance.getEntriesByType('resource').filter(x=>/youtube/.test(x.name)).length,
+    fokus:document.activeElement.className}})())`);
+check('kliknięcie wstawia odtwarzacz youtube-nocookie z autoodtwarzaniem', /youtube-nocookie\.com\/embed\/Xb2s9y0i0nA\?autoplay=1/.test(gracz.src) && gracz.ref === 'strict-origin-when-cross-origin', String(gracz.src));
+check('odtwarzacz mieści się w karcie i przejmuje fokus', gracz.szerokosc >= 300 && gracz.szerokosc <= 376 && gracz.wysokosc >= 120 && /ytplayer/.test(gracz.fokus), JSON.stringify(gracz));
+check('po kliknięciu zapytanie do YouTube naprawdę poszło', gracz.zapytania >= 1 && gracz.przycisk === false, JSON.stringify({z: gracz.zapytania, p: gracz.przycisk}));
+await shot('m4-film-odtworzony');
+aud = await json(AUDIT); check('kontrast AA 390 ciemny (odtworzony film)', aud.zlych === 0, JSON.stringify(aud.najgorsze));
+await ev(`S.settings.motyw='jasny';save();applyTheme();render()`); await sleep(700);
+const jasny = await json(`JSON.stringify((()=>{const f=document.querySelector('.face.front');
+  return{foto:!!(f&&f.querySelector('img.foto')),yt:(document.querySelector('.yt')||{}).textContent||''}})())`);
+aud = await json(AUDIT); check('kontrast AA 390 jasny (zdjęcie i film)', aud.zlych === 0 && jasny.foto === true, JSON.stringify(aud.najgorsze));
+await shot('m5-karta-media-jasna');
+await ev(`S.settings.motyw='ciemny';save();applyTheme();session=null;deckOpen='sec';go('decks')`); await sleep(700);
+const mediaWListie = await json(`JSON.stringify((()=>{const c=findCard(${IDK});
+  const r=[...document.querySelectorAll('.cardrow')].find(x=>(x.querySelector('.q')||{}).textContent.includes(c.front.slice(0,14)));
+  return{wiersz:!!r,znaki:r?[...r.querySelectorAll('.meta span')].map(s=>s.textContent.trim()):[],
+    duze:!!(r&&r.querySelector('img.foto'))}})())`);
+check('lista fiszek mówi, która karta ma zdjęcie i film', mediaWListie.wiersz === true && mediaWListie.znaki.includes('ze zdjęciem') && mediaWListie.znaki.includes('z filmem'), JSON.stringify(mediaWListie));
+check('lista zostaje lekka — zdjęcie rysuje się dopiero na karcie', mediaWListie.duze === false, String(mediaWListie.duze));
+await click(`[data-act="editcard"][data-id="${przedEdycja.id}"]`, 600);
+await click('#cFotoDel', 400);
+const poUsunieciuZ = await json(`JSON.stringify({stan:fotoStan,mini:document.getElementById('cFotoMini').classList.contains('ukryte'),
+  radz:document.getElementById('cFotoInfo').textContent,przycisk:document.getElementById('cFotoBtn').textContent})`);
+check('„Usuń zdjęcie” chowa podgląd i zapowiada usunięcie', poUsunieciuZ.stan === '' && poUsunieciuZ.mini === true && /zapisz/i.test(poUsunieciuZ.radz) && poUsunieciuZ.przycisk === 'Dodaj zdjęcie', JSON.stringify(poUsunieciuZ));
+await click('[data-act="cardSave"]', 900);
+const odlaczone = await json(`JSON.stringify((()=>{const c=findCard(${IDK});return{img:c.img===undefined,yt:c.yt||'',}})())`);
+check('zdjęcie usunięte z karty znika też z jej danych', odlaczone.img === true && odlaczone.yt === 'Xb2s9y0i0nA', JSON.stringify(odlaczone));
+/* cache:'no-store' — zdjęcie było już w pamięci przeglądarki, a serwer ma je oddawać raz na zawsze */
+const poSerwerze = await json(`fetch(${JSON.stringify(wgrane.url)},{credentials:'same-origin',cache:'no-store'}).then(r=>JSON.stringify({status:r.status,type:r.headers.get('content-type')||''}),e=>JSON.stringify({blad:String(e&&e.message||e)}))`);
+check('plik zdjęcia skasowany z serwera razem z odłączaniem', poSerwerze.status === 404, JSON.stringify(poSerwerze));
+await ev(`findCard(${IDK}).yt='';save();render()`); await sleep(400);
+await send('Network.setBlockedURLs', {urls: []});
+
 /* ══ 3 · Statystyki ════════════════════════════════════════════════ */
 await ev(`session=null;startSession(false)`); await sleep(600);
 await click('[data-act="reveal"]', 400);

@@ -116,6 +116,53 @@ check('telefon sam zobaczył fiszkę z laptopa', naTelefonie.ikona === IK2 && na
 await tel.ev(`go('today')`); await sleep(700);
 await tel.shot('zywo-4-telefon-po-sync');
 
+/* ── 3b · Zdjęcie i film wędrują na drugie urządzenie ─────────────── */
+await tel.send('Network.enable'); await lap.send('Network.enable');
+await tel.send('Network.setBlockedURLs', {urls: ['*youtube.com*', '*youtube-nocookie.com*', '*ytimg.com*']});
+await lap.send('Network.setBlockedURLs', {urls: ['*youtube.com*', '*youtube-nocookie.com*', '*ytimg.com*']});
+await tel.ev(`deckOpen='sec';go('decks')`); await sleep(700);
+await tel.click(`[data-act="editcard"][data-id=${JSON.stringify(nowa.id)}]`, 800);
+const wgrane = await tel.js(`(async()=>{const cv=document.createElement('canvas');cv.width=1600;cv.height=1200;
+  const g=cv.getContext('2d');g.fillStyle='#0e0b16';g.fillRect(0,0,1600,1200);
+  g.fillStyle='#ff2e7e';g.beginPath();g.arc(800,600,430,0,7);g.fill();
+  g.fillStyle='#fff';g.font='150px sans-serif';g.fillText('IPv6',500,660);
+  const bl=await new Promise(r=>cv.toBlob(r,'image/png'));
+  await dodajZdjecie(new File([bl],'plansza.png',{type:'image/png'}));
+  return JSON.stringify({url:fotoStan,naturalny:document.getElementById('cFotoMini').naturalWidth})})()`);
+await tel.wpisz('#cYT', 'https://youtu.be/dQw4w9WgXcQ');
+await tel.shot('zywo-10-telefon-formularz-z-zdjeciem');
+await tel.click('[data-act="cardSave"]', 1500);
+await sleep(2600);   // debounce autosynchronizacji
+const serwerZ = await tel.js(`ap('GET','/api/state').then(s=>JSON.stringify((()=>{const c=s.dane.cards.find(x=>/IPv6/.test(x.front))||{};
+  return{rev:s.rev,img:c.img||'brak',yt:c.yt||'brak'}})()))`);
+check('telefon zapisał zdjęcie i film na serwerze', serwerZ.img === wgrane.url && serwerZ.yt === 'dQw4w9WgXcQ', JSON.stringify(serwerZ));
+await lap.click('#syncChip', 900);
+await lap.click('[data-act="syncTeraz"]', 2600);
+const lapAdres = await lap.js(`JSON.stringify((()=>{const c=S.cards.find(x=>/IPv6/.test(x.front))||{};
+  return{img:c.img||'brak',yt:c.yt||'brak'} })())`);
+check('laptop pobrał adres zdjęcia i identyfikator filmu', lapAdres.img === wgrane.url && lapAdres.yt === 'dQw4w9WgXcQ', JSON.stringify(lapAdres));
+const lapKarta = await lap.js(`(async()=>{const c=S.cards.find(x=>/IPv6/.test(x.front));c.due=Date.now()-6e4;
+  if(c.status==='new')c.status='learn';
+  session=null;startSession(false,c.deck);
+  for(let i=0;i<90;i++){const k=session&&findCard(session.ids[session.i]);if(!k||k.id===c.id)break;reveal();grade(5)}
+  const img=document.querySelector('.face.front img.foto');
+  if(img)await img.decode().catch(()=>{});
+  return JSON.stringify({id:c.id,naturalny:img?img.naturalWidth:0,
+    szerokosc:img?Math.round(img.getBoundingClientRect().width):0,
+    aria:document.querySelector('.card3d').getAttribute('aria-label')||''})})()`);
+check('zdjęcie dociera na laptopa i rysuje się w karcie', lapKarta.naturalny === 900 && lapKarta.szerokosc >= 200 && /Zdjęcie przy pytaniu/.test(lapKarta.aria), JSON.stringify(lapKarta));
+await lap.shot('zywo-11-laptop-karta-ze-zdjeciem');
+await lap.click('[data-act="reveal"]', 900);
+const lapPrzed = await lap.js(`JSON.stringify({iframe:document.querySelectorAll('.ytplayer iframe').length,
+  przycisk:!!document.querySelector('.face.back .yt'),
+  youtube:performance.getEntriesByType('resource').filter(x=>/youtube|ytimg/.test(x.name)).length})`);
+check('na laptopie film też czeka na kliknięcie — YouTube nie jest pytany sam', lapPrzed.iframe === 0 && lapPrzed.przycisk === true && lapPrzed.youtube === 0, JSON.stringify(lapPrzed));
+await lap.click('.face.back .yt', 900);
+const lapFilm = await lap.js(`JSON.stringify((()=>{const p=document.querySelector('.face.back .ytplayer iframe');
+  return{src:p?p.src:'',youtube:performance.getEntriesByType('resource').filter(x=>/youtube/.test(x.name)).length}})())`);
+check('kliknięty film odpala się z youtube-nocookie na drugim urządzeniu', /youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(lapFilm.src) && lapFilm.youtube >= 1, JSON.stringify(lapFilm));
+await lap.shot('zywo-12-laptop-film-po-kliknieciu');
+
 /* ── 4 · Kilkanaście sesji: dziesięć „dni” nauki symulowanych zegarem ─ */
 const OCENY = [5, 4, 4, 3, 5, 4];
 const sesje = await lap.js(`(async()=>{
@@ -182,6 +229,7 @@ await tel.wpisz('#rmPass', HASLO);
 await tel.click('[data-act="kontoUsunTak"]', 2200);
 const poUsunieciu = await (await fetch(SERWER + '/api/health')).json();
 check('konto testowe skasowane, baza testowa znowu pusta', poUsunieciu.konta === 0, JSON.stringify(poUsunieciu));
+check('zdjęcie testowe zniknęło razem z kontem', poUsunieciu.zdjecia === 0, JSON.stringify(poUsunieciu));
 check('zero wyjątków na telefonie', tel.logi.length === 0, tel.logi.slice(0, 3).join(' | '));
 check('zero wyjątków na laptopie', lap.logi.length === 0, lap.logi.slice(0, 3).join(' | '));
 await tel.stop(); await lap.stop();

@@ -6,12 +6,13 @@
   Co tu jest: konta (nazwa + hasło), sesja w ciasteczku, zapis stanu fiszek na serwerze.
   Hasła NIGDY nie są zapisywane — trzymamy tylko jego zaszyfrowany odcisk (scrypt + sól).
   Każdy uczeń widzi wyłącznie swoje dane: każde zapytanie jest filtrowane po id konta z sesji.
+  Zdjęcia do fiszek są na serwerze w katalogu dane/media-<baza>/<id konta>; w kartach zostaje tylko adres.
 */
 import {createServer} from 'node:http';
 import {DatabaseSync} from 'node:sqlite';
 import {randomBytes, scrypt, timingSafeEqual} from 'node:crypto';
-import {mkdirSync, readFileSync, existsSync} from 'node:fs';
-import {dirname, join} from 'node:path';
+import {mkdirSync, readFileSync, writeFileSync, rmSync, existsSync} from 'node:fs';
+import {dirname, join, basename} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const TUTAJ = dirname(fileURLToPath(import.meta.url));
@@ -22,6 +23,10 @@ const PLIK_APLIKACJI = join(TUTAJ, 't-fiszki.html');
 const DNI_SESJI = 30;
 const MAX_CIALA = 2 * 1024 * 1024;          // 2 MB na zestaw fiszek — z zapasem
 const LIMIT_PROB = 8, OKNO_PROB = 15 * 60e3; // 8 błędnych logowań z rzędu na 15 minut
+const MAX_MEDIA = 4 * 1024 * 1024;          // 4 MB na jeden plik graficzny (klient i tak zmniejsza do ~150 kB)
+const LIMIT_ZDJEC = 80, LIMIT_BAJTOW = 24 * 1024 * 1024;    // sufit na konto: tyle zdjęć albo tyle bajtów
+// Zdjęcia leżą w katalogu przy bazie, więc testy na BAZA=dane/testy.db nie wchodzą w prawdziwe pliki.
+const KATALOG_MEDIA = process.env.MEDIA || join(dirname(BAZA), 'media-' + basename(BAZA).replace(/\.[^.]*$/, ''));
 
 mkdirSync(dirname(BAZA), {recursive: true});
 const db = new DatabaseSync(BAZA);
@@ -36,6 +41,9 @@ db.exec(`
     konto integer primary key, dane text not null, rev integer not null, zapisano integer not null);
   create table if not exists proby(
     klucz text primary key, ile integer not null, od integer not null);
+  create table if not exists media(
+    id text primary key, konto integer not null, plik text not null, typ text not null, rozmiar integer not null,
+    utworzono integer not null);
 `);
 
 /* ── hasła ───────────────────────────────────────────────────────── */
@@ -102,6 +110,36 @@ function cialo(req) {
     req.on('error', rej);
   });
 }
+/* ── zdjęcia ─────────────────────────────────────────────────────── */
+/* Plik dostaje nazwę wylosowaną przez serwer, a typ z samych bajtów — nagłówek content-type
+   od przeglądarki może kłamać, więc SVG, HTML i GIF-y nie przejdą. */
+function obrazemJest(b) {
+  if (b.length > 12 && b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return ['image/jpeg', 'jpg'];
+  if (b.length > 12 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47 &&
+      b[4] === 0x0D && b[5] === 0x0A && b[6] === 0x1A && b[7] === 0x0A) return ['image/png', 'png'];
+  if (b.length > 12 && b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP') return ['image/webp', 'webp'];
+  return null;
+}
+function cialoBin(req, limit) {
+  return new Promise((res, rej) => {
+    const czesci = []; let n = 0;
+    req.on('data', function (d) {
+      n += d.length;
+      if (n > limit) { rej(Object.assign(new Error('za duze'), {kod: 413})); req.destroy(); return; }
+      czesci.push(d);
+    });
+    req.on('end', () => res(Buffer.concat(czesci)));
+    req.on('error', rej);
+  });
+}
+const WK = db.prepare('select count(*) n, coalesce(sum(rozmiar),0) b from media where konto=?');
+const POBIERZ_MEDIA = db.prepare('select id,konto,plik,typ from media where id=?');
+const DODAJ_MEDIA = db.prepare('insert into media(id,konto,plik,typ,rozmiar,utworzono) values(?,?,?,?,?,?)');
+const USUN_MEDIA = db.prepare('delete from media where id=? and konto=?');
+const NAZWA_MEDIA = /^[0-9a-f]{16}$/;
+const katalogKonta = id => join(KATALOG_MEDIA, String(id));
+function mediaUsunPlik(konto, plik) { try { rmSync(join(katalogKonta(konto), plik)); } catch (e) { /* pliku już nie ma — porządek w bazie i tak zrobiony */ } }
+
 const czystaNazwa = s => String(s || '').normalize('NFKC').replace(/[<>]/g, '').trim().replace(/\s+/g, ' ');
 const poprawnaNazwa = s => s.length >= 2 && s.length <= 28 && !/^\d+$/.test(s);
 const poprawneHaslo = s => typeof s === 'string' && s.length >= 8 && s.length <= 128;
@@ -115,7 +153,8 @@ function dozwolonyZrodlo(req) {
 /* ── API ─────────────────────────────────────────────────────────── */
 const TRASY = {
   'GET /api/health': async function (req, res) {
-    json(res, 200, {ok: true, konta: db.prepare('select count(*) n from konta').get().n});
+    json(res, 200, {ok: true, konta: db.prepare('select count(*) n from konta').get().n,
+      zdjecia: db.prepare('select count(*) n from media').get().n});
   },
   'GET /api/me': async function (req, res) {
     const id = await uwierzytelnij(req, res);
@@ -179,6 +218,34 @@ const TRASY = {
       .run(k.id, JSON.stringify(b.dane), nowe, teraz);
     json(res, 200, {ok: true, rev: nowe, zapisano: teraz});
   },
+  'POST /api/media': async function (req, res) {
+    if (!dozwolonyZrodlo(req)) return json(res, 403, {blad: 'Nieznane źródło żądania.'});
+    const id = await uwierzytelnij(req, res);
+    const k = id && kontoPoId(id);
+    if (!k) return json(res, 401, {blad: 'Brak sesji.'});
+    const b = await cialoBin(req, MAX_MEDIA);
+    const typ = obrazemJest(b);
+    if (!typ) return json(res, 415, {blad: 'To nie jest zdjęcie — serwer przyjmuje JPG, PNG i WebP.'});
+    const zapas = WK.get(k.id);
+    if (zapas.n >= LIMIT_ZDJEC || zapas.b + b.length > LIMIT_BAJTOW)
+      return json(res, 507, {blad: `Za dużo zdjęć na koncie (limit ${LIMIT_ZDJEC} zdjęć albo ${Math.round(LIMIT_BAJTOW / 1048576)} MB). Usuń zdjęcie ze starych fiszek.`});
+    const mid = randomBytes(8).toString('hex'), plik = mid + '.' + typ[1];
+    mkdirSync(katalogKonta(k.id), {recursive: true});
+    writeFileSync(join(katalogKonta(k.id), plik), b);
+    DODAJ_MEDIA.run(mid, k.id, plik, typ[0], b.length, Date.now());
+    json(res, 200, {ok: true, id: mid, url: '/api/media/' + mid, rozmiar: b.length});
+  },
+  'POST /api/media-usun': async function (req, res) {
+    if (!dozwolonyZrodlo(req)) return json(res, 403, {blad: 'Nieznane źródło żądania.'});
+    const id = await uwierzytelnij(req, res);
+    const k = id && kontoPoId(id);
+    if (!k) return json(res, 401, {blad: 'Brak sesji.'});
+    const b = await cialo(req);
+    const w = typeof b.id === 'string' && NAZWA_MEDIA.test(b.id) ? POBIERZ_MEDIA.get(b.id) : null;
+    if (!w || w.konto !== k.id) return json(res, 404, {blad: 'Brak takiego zdjęcia.'});
+    USUN_MEDIA.run(b.id, k.id); mediaUsunPlik(k.id, w.plik);
+    json(res, 200, {ok: true});
+  },
   'POST /api/konto-usun': async function (req, res) {
     if (!dozwolonyZrodlo(req)) return json(res, 403, {blad: 'Nieznane źródło żądania.'});
     const id = await uwierzytelnij(req, res);
@@ -190,16 +257,37 @@ const TRASY = {
     db.prepare('delete from stan where konto=?').run(k.id);
     db.prepare('delete from sesje where konto=?').run(k.id);
     db.prepare('delete from konta where id=?').run(k.id);
+    db.prepare('delete from media where konto=?').run(k.id);
+    // katalogi zdjęć noszą w nazwie numer konta, więc stąd nie da się wyjść poza dane
+    try { rmSync(join(KATALOG_MEDIA, String(k.id)), {recursive: true, force: true}); } catch (e) { /* katalogu już nie ma */ }
     wyloguj(res, req);
     json(res, 200, {ok: true});
   }
 };
+
+/* Zdjęcia są tylko dla zalogowanego właściciela: plik leży w katalogu o nazwie jego konta,
+   a adres zapytania to losowy szesnastkowy numer, więc po nazwie nie da się nic zgadnąć. */
+async function pobierzMedia(req, res, sufix) {
+  const id = await uwierzytelnij(req, res);
+  const k = id && kontoPoId(id);
+  if (!k) return json(res, 401, {blad: 'Brak sesji.'});
+  if (!NAZWA_MEDIA.test(sufix)) return json(res, 400, {blad: 'Zła nazwa zdjęcia.'});
+  const w = POBIERZ_MEDIA.get(sufix);
+  if (!w || w.konto !== k.id) return json(res, 404, {blad: 'Brak takiego zdjęcia.'});
+  let dane;
+  try { dane = readFileSync(join(katalogKonta(w.konto), w.plik)); }
+  catch (e) { USUN_MEDIA.run(w.id, w.konto); return json(res, 404, {blad: 'Zdjęcie zniknęło z serwera.'}); }
+  res.writeHead(200, {'content-type': w.typ, 'cache-control': 'private, max-age=31536000, immutable',
+    'x-content-type-options': 'nosniff', 'content-length': dane.length});
+  res.end(dane);
+}
 
 /* ── serwer ──────────────────────────────────────────────────────── */
 const serwer = createServer(async function (req, res) {
   const klucz = req.method + ' ' + req.url.split('?')[0];
   try {
     if (TRASY[klucz]) return await TRASY[klucz](req, res);
+    if (klucz.startsWith('GET /api/media/')) return await pobierzMedia(req, res, klucz.slice('GET /api/media/'.length));
     if (klucz.startsWith('POST /api/') || klucz.startsWith('PUT /api/')) return json(res, 404, {blad: 'Nie ma takiego punktu API.'});
     if (req.method === 'GET' && (klucz === 'GET /' || klucz === 'GET /t-fiszki.html')) {
       const html = readFileSync(PLIK_APLIKACJI);

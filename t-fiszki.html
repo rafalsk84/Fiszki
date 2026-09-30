@@ -304,6 +304,26 @@ html.web #icPhone{display:none}
 .znpick button.ik.on{border-color:var(--magenta);box-shadow:0 0 0 3px var(--acc-soft)}
 .znpick button.ik.on::after{content:none}
 #cI{max-width:110px;text-align:center;font-size:20px}
+/* ── zdjęcie i film na fiszce ───────────────────────────────────── */
+.ukryte{display:none!important}
+.card3d.z-media{height:clamp(322px,52dvh,442px)}
+.face .foto{flex:none;width:100%;height:clamp(92px,30%,168px);object-fit:cover;border-radius:14px;
+  border:1px solid var(--line-strong);margin:10px 0 2px;background:var(--sunk)}
+.ytwrap{flex:none;margin:10px 0 2px}
+.yt{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:11px 13px;border-radius:14px;
+  border:1px dashed var(--line-strong);background:var(--sunk);color:var(--text);font:700 12.5px/1.35 var(--body);
+  text-align:left;cursor:pointer;text-transform:none;letter-spacing:0}
+.yt:hover{border-style:solid;border-color:var(--magenta);background:var(--glass-2)}
+.yt svg{width:24px;height:24px;flex:none;fill:var(--magenta-ink);stroke:none}
+.ytplayer{flex:none;width:100%;aspect-ratio:16/9;max-height:42%;margin:10px 0 2px;border-radius:14px;overflow:hidden;
+  border:1px solid var(--line-strong);background:#000}
+.ytplayer iframe{display:block;width:100%;height:100%;border:0}
+.medrow{display:flex;gap:11px;align-items:flex-start}
+.medmin{width:74px;height:74px;object-fit:cover;border-radius:12px;border:1px solid var(--line-strong);background:var(--sunk);flex:none}
+.medak{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1;min-width:0}
+.podpowiedz{font-size:11.5px;color:var(--dim);line-height:1.5;flex:1 0 100%;margin:0;text-transform:none;letter-spacing:0}
+.plik{display:none}
+.fblock{display:grid;gap:6px;font:800 11px/1.3 var(--body);letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
 .grades{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:13px}
 .grade{position:relative;display:grid;gap:3px;justify-items:center;padding:13px 3px 10px;border-radius:14px;min-height:var(--tap);
   border:1px solid var(--line);background:var(--glass);overflow:hidden;transition:transform .16s,background .2s}
@@ -800,6 +820,29 @@ const safeIkona=v=>{const m=String(v||'').match(IKO_CIAG);
   while(s.length&&IKO_OGON.test(s))s=s.slice(0,-1);
   return IKO_POPRAWNA.test(s)?s:'';};
 const iko=c=>c&&c.ikona?'<span class="iko">'+esc(c.ikona)+'</span>':'';
+/* Zdjęcie i film. W karcie trzymamy tylko adres zdjęcia i jedenaście znaków identyfikatora
+   YouTube — reszta (gracz, miniatura w edytorze) buduje się przy renderze. Adres i identyfikator
+   mogą nadejść z drugiego urządzenia albo z importowanego pliku, więc oba są sprawdzane wzorcem. */
+const ADRES_ZDJACIA=/^(?:\/api\/media\/[0-9a-f]{16}|data:image\/jpeg;base64,[A-Za-z0-9+/=]{64,})$/;
+const safeZdjecie=u=>typeof u==='string'&&ADRES_ZDJACIA.test(u)?u:'';
+const YT_OK=s=>/^[A-Za-z0-9_-]{11}$/.test(String(s));
+const YT_ID=function(s){const t=String(s||'').trim();
+  if(YT_OK(t))return t;                                   // uczeń wkleił sam identyfikator
+  let u;try{u=new URL(/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(t)?t:'https://'+t)}catch(e){return ''}
+  const host=String(u.hostname).toLowerCase().replace(/^www\./,''), czesc=String(u.pathname).split('/').filter(Boolean);
+  if(host==='youtu.be')return czesc.length===1&&YT_OK(czesc[0])?czesc[0]:'';
+  if(host!=='youtube.com'&&host!=='m.youtube.com'&&host!=='music.youtube.com')return '';
+  if(czesc[0]==='watch')return YT_OK(u.searchParams.get('v')||'')?u.searchParams.get('v'):'';
+  if(czesc.length===2&&['embed','shorts','live'].indexOf(czesc[0])>=0)return YT_OK(czesc[1])?czesc[1]:'';
+  return ''};
+const ytAdres=id=>'https://youtu.be/'+id;
+const fotoKarty=c=>{const u=safeZdjecie(c&&c.img);
+  return u?'<img class="foto" src="'+esc(u)+'" alt="Zdjęcie do fiszki: '+esc(c.front)+'" loading="lazy">':''};
+const filmKarty=c=>{const id=c&&YT_OK(c.yt)?c.yt:'';
+  return id?'<div class="ytwrap"><button type="button" class="yt" data-act="ytGraj" data-yt="'+id+'" '+
+  'aria-label="Odtwórz film z YouTube dodany do tej fiszki"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6L19 12z"/></svg>'+
+  '<span>film na YouTube — kliknij, żeby go odtworzyć</span></button></div>':''};
+const mediaPill=c=>c?((safeZdjecie(c.img)?'<span>ze zdjęciem</span>':'')+(YT_OK(c.yt)?'<span>z filmem</span>':'')):'';
 
 /* ── Stan i dane startowe ───────────────────────────────────────── */
 let S=null, route='today', session=null, undoStack=[], deckOpen=null, imp=null, lastFocus=null;
@@ -877,7 +920,8 @@ function scal(a,b){
     if(!st){karty.set(c.id,Object.assign({},c));return}
     if((c.reps||0)>(st.reps||0)||((c.reps||0)===(st.reps||0)&&(c.due||0)>(st.due||0)))
       Object.assign(st,{ef:c.ef,reps:c.reps,interval:c.interval,status:c.status,due:c.due,lapses:c.lapses});
-    if((c.up||0)>(st.up||0))Object.assign(st,{front:c.front,back:c.back,note:c.note,zn:c.zn,ikona:c.ikona,deck:c.deck,src:c.src});
+    if((c.up||0)>(st.up||0))Object.assign(st,{front:c.front,back:c.back,note:c.note,zn:c.zn,ikona:c.ikona,
+      img:c.img,yt:c.yt,deck:c.deck,src:c.src});
   }
   a.cards.forEach(dolacz);b.cards.forEach(dolacz);
   for(const c of Array.from(karty.values()))
@@ -920,10 +964,54 @@ async function sciagnij(){
   }catch(e){pokazSync(e.kod?'blad':'offline')}
   S.settings=Object.assign(S.settings||{},ustawienia());S.usuniete=S.usuniete||[];
 }
+/* ── Zdjęcia: prasowanie w przeglądarce i wysyłka ────────────────── */
+const BOK_ZDJECIA=900;                       // telefon daje zdjęcie kilkunastomegapikselowe, do fiszki wystarczy 900 px
+async function zmniejszZdjecie(plik){
+  const bitmap=await createImageBitmap(plik);
+  const sk=Math.min(1,BOK_ZDJECIA/Math.max(bitmap.width,bitmap.height));
+  const cv=document.createElement('canvas');
+  cv.width=Math.max(1,Math.round(bitmap.width*sk)); cv.height=Math.max(1,Math.round(bitmap.height*sk));
+  cv.getContext('2d').drawImage(bitmap,0,0,cv.width,cv.height);
+  if(bitmap.close)bitmap.close();
+  return cv;
+}
+const doJpeg=(cv,q)=>new Promise(function(res){cv.toBlob(function(b){res(b)},'image/jpeg',q)});
+async function wgrajZdjecie(plik){
+  const cv=await zmniejszZdjecie(plik);
+  let bl=await doJpeg(cv,.72);
+  if(bl&&bl.size>220*1024)bl=await doJpeg(cv,.5)||bl;
+  if(!bl)throw new Error('Przeglądarka nie dała rady przetworzyć zdjęcia.');
+  if(SERWER&&konto){
+    const r=await fetch('/api/media',{method:'POST',credentials:'same-origin',headers:{'content-type':'image/jpeg'},body:bl});
+    let d={};try{d=await r.json()}catch(e){}
+    if(!r.ok)throw new Error(d.blad||('Serwer odpowiedział '+r.status));
+    return d.url;
+  }
+  return cv.toDataURL('image/jpeg',.72);     // bez konta zdjęcie zostaje w tej przeglądarce
+}
+function usunZdjecie(url){
+  if(!SERWER||!konto||!/^\/api\/media\//.test(String(url||'')))return;
+  ap('POST','/api/media-usun',{id:String(url).slice('/api/media/'.length)}).catch(function(){});
+}
+/* Zdjęcia z trybu lokalnego przenosimy na serwer przy logowaniu: dziesięć takich w jednym
+   zestawie fiszek przekracza limit żądania, a adres zdjęcia mieści się zawsze. */
+async function przeslijZdjecia(){
+  if(!SERWER||!konto)return;
+  let przeniesione=0;
+  for(const c of S.cards){
+    if(typeof c.img==='string'&&c.img.slice(0,5)==='data:'){
+      try{
+        const bl=await (await fetch(c.img)).blob();
+        c.img=await wgrajZdjecie(bl); c.up=Date.now(); przeniesione++;
+      }catch(e){toast('Zdjęcie fiszki „'+c.front.slice(0,22)+'…” zostało tylko na tym urządzeniu.','bad')}
+    }
+  }
+  if(przeniesione){save();toast(przeniesione+' '+pl(przeniesione,'zdjęcie','zdjęcia','zdjęć')+' przeszło na serwer.','ok')}
+}
 async function zaloguj(nazwa,haslo,rejestracja){
   const r=await ap('POST',rejestracja?'/api/register':'/api/login',{nazwa:nazwa,haslo:haslo});
   konto=r.nazwa;localStorage.setItem(KSES,konto);S.settings.gosc=false;
-  await sciagnij();zapiszLocalnie();render();
+  await sciagnij();await przeslijZdjecia();zapiszLocalnie();render();
   toast(rejestracja?'Konto „'+konto+'” gotowe.':'Witaj z powrotem, '+konto+'.','ok');
 }
 async function wyloguj(){
@@ -1209,20 +1297,22 @@ function vStudy(){
       '<p>'+(q.list.length?'Masz '+q.list.length+' '+pl(q.list.length,'kartę','karty','kart')+' w kolejce — zacznij sesję.':'Kolejka na dziś jest pusta.')+'</p>'+
       '<div class="row"><button class="btn primary" data-act="start"'+(q.list.length?'':' disabled')+'>Zacznij sesję</button><button class="btn ghost" data-act="tab" data-go="decks">Talie</button></div></div></section>';}
   const c=cur(), d=deck(c.deck), on=session.revealed, left=session.ids.length-session.i;
-  const ls=lastSeen(c.id);
+  const ls=lastSeen(c.id), zdj=safeZdjecie(c.img), film=filmKarty(c);
   return '<section class="stack deal study-grid">'+
    '<div class="stack"><div class="sessionbar"><span class="decktag" style="color:'+inkOf(d.color)+'"><i></i>'+esc(d.name)+'</span>'+
      '<span style="flex:1"></span><span class="eyebrow num">'+(session.done+1)+' / '+session.ids.length+'</span>'+
      '<button class="link" data-act="editcard" data-id="'+c.id+'">Edytuj</button></div>'+
    '<div class="bar" role="progressbar" aria-valuenow="'+session.done+'" aria-valuemin="0" aria-valuemax="'+session.ids.length+'" aria-label="Postęp sesji"><i style="width:'+(session.done/session.ids.length*100)+'%"></i></div>'+
-   '<div class="card3d'+(on?' flipped':'')+'" id="card3d" '+taliaVar(d)+' role="button" tabindex="0" aria-pressed="'+on+'" aria-label="'+esc(on?'Odpowiedź: '+c.back:'Pytanie: '+c.front+'. Spacja, aby zobaczyć odpowiedź.')+'">'+
+   '<div class="card3d'+(on?' flipped':'')+((zdj||film)?' z-media':'')+'" id="card3d" '+taliaVar(d)+' role="button" tabindex="0" aria-pressed="'+on+'" aria-label="'+
+     esc(on?('Odpowiedź: '+c.back+(film?' Na odwrocie jest film — przycisk pod odpowiedzią.':''))
+       :('Pytanie: '+c.front+(zdj?' Zdjęcie przy pytaniu':'')+'. Spacja, aby zobaczyć odpowiedź.'))+'">'+
      '<div class="flipper">'+
        '<div class="face front"><div class="kind"><span class="kapy">'+iko(c)+stanPill(bucket(c))+znPill(c)+'</span><span>EF '+c.ef.toFixed(2)+'</span></div>'+
-         '<p class="qtext'+(c.deck==='eng'||c.deck==='nie'?' term':'')+'">'+esc(c.front)+'</p>'+
+         '<p class="qtext'+(c.deck==='eng'||c.deck==='nie'?' term':'')+'">'+esc(c.front)+'</p>'+fotoKarty(c)+
          '<div class="foot">'+(ls?'ostatnio widziana: '+when(ls)+' · ':'')+
            (c.interval?'przerwa '+fmtDays(c.interval)+' · ':'przerwa — · ')+'wpadki: '+c.lapses+(c.src==='test'?' · z testu':'')+'</div></div>'+
        '<div class="face back"><div class="kind"><span class="kapy">'+iko(c)+'<span>odpowiedź</span>'+znPill(c)+'</span><span>'+(c.src==='test'?'z testu':'własna fiszka')+'</span></div>'+
-         '<p class="qtext">'+esc(c.back)+'</p>'+
+         '<p class="qtext">'+esc(c.back)+'</p>'+film+
          '<div class="foot">'+(c.note?esc(c.note):'Oceń szczerze — na tej ocenie SM-2 liczy kolejny termin.')+'</div></div>'+
      '</div></div>'+
    (on
@@ -1238,6 +1328,8 @@ function vStudy(){
        '<dt>Talia</dt><dd>'+esc(d.name)+'</dd>'+
        '<dt>Stan</dt><dd>'+BUCKETS[bucket(c)][0]+'</dd>'+
        (c.ikona?'<dt>Skojarzenie</dt><dd><span class="iko" style="font-size:26px">'+esc(c.ikona)+'</span></dd>':'')+
+       (zdj?'<dt>Zdjęcie</dt><dd><img class="medmin" src="'+esc(zdj)+'" alt="Podgląd zdjęcia tej fiszki"></dd>':'')+
+       (film?'<dt>Film</dt><dd>'+film+'</dd>':'')+
        (c.zn&&c.zn.t?'<dt>Znacznik</dt><dd>'+znPill(c)+'</dd>':'')+
        '<dt>Łatwość EF</dt><dd>'+c.ef.toFixed(2)+'</dd>'+
        '<dt>Przerwa</dt><dd>'+(c.interval?fmtDays(c.interval):'—')+'</dd>'+
@@ -1327,7 +1419,7 @@ function vDecks(){
      '<div class="kpi"><b class="num">'+st.dist.mistrz+'</b><i>opanowane ≥ 21 dni</i></div></div>'+
    (cs.length?'<div class="cardlist">'+cs.map(function(c){
      return '<div class="cardrow" '+taliaVar(d)+'><p class="q">'+(c.ikona?iko(c)+' ':'')+esc(c.front)+'</p><p class="a">'+esc(c.back)+'</p>'+
-       '<div class="meta">'+stanPill(bucket(c))+(c.zn&&c.zn.t?znPill(c):'')+
+       '<div class="meta">'+stanPill(bucket(c))+(c.zn&&c.zn.t?znPill(c):'')+mediaPill(c)+
        '<span>'+(c.status==='new'?'':'powtórka '+when(c.due))+'</span><span>EF '+c.ef.toFixed(2)+'</span>'+
        (c.lapses?'<span>wpadki: '+c.lapses+'</span>':'')+(c.src==='test'?'<span style="color:var(--magenta-ink)">z testu</span>':'')+'</div>'+
        '<div class="ak"><button data-act="editcard" data-id="'+c.id+'"><svg viewBox="0 0 24 24"><path d="M4 20h4L20 8l-4-4L4 16z"/></svg>Edytuj</button>'+
@@ -1542,10 +1634,11 @@ function createDeck(){
   S.decks.push(d);deckOpen=d.id;save();closeSheet();route='decks';render();
   toast('Talia „'+n+'” jest pusta — dodaj fiszki.','ok');
 }
-let edytujKarte=null, znWybrany=null;
+let edytujKarte=null, znWybrany=null, fotoStan='', fotoStare='';
 function cardForm(c){
   edytujKarte=c?c.id:null;
   znWybrany=c&&c.zn?safeKolor(c.zn.k):null;
+  fotoStare=c&&c.img?c.img:''; fotoStan=fotoStare;
   const d=deck(c?c.deck:(deckOpen||S.decks[0].id));
   openSheet(c?'Edytuj fiszkę':'Nowa fiszka',c?'<span>plan powtórek zostaje nienaruszony</span>':'',
     '<label class="f">Pytanie / przód karty<textarea id="cF" placeholder="np. Jakie złożoność ma sortowanie przez scalanie?">'+esc(c?c.front:'')+'</textarea><span class="err" id="cErr"></span></label>'+
@@ -1555,6 +1648,15 @@ function cardForm(c){
     '<label class="f">Talia<select id="cD">'+S.decks.map(function(x){
       return '<option value="'+x.id+'"'+(x.id===d.id?' selected':'')+'>'+esc(x.name)+'</option>'}).join('')+'</select></label>'+
     '<label class="f">Notatka (opcjonalnie)<textarea id="cN" placeholder="np. czego się pilnować">'+esc(c&&c.note?c.note:'')+'</textarea></label>'+
+    '<div class="fblock"><span>Zdjęcie (opcjonalnie)</span><div class="medrow">'+
+      '<img class="medmin ukryte" id="cFotoMini" alt="Podgląd zdjęcia tej fiszki">'+
+      '<div class="medak"><button type="button" class="btn small" data-act="fotoWybierz" id="cFotoBtn">Dodaj zdjęcie</button>'+
+      '<button type="button" class="btn ghost small ukryte" id="cFotoDel" data-act="fotoUsun">Usuń zdjęcie</button>'+
+      '<p class="podpowiedz" id="cFotoInfo"></p></div></div>'+
+      '<input type="file" id="cFoto" class="plik" accept="image/jpeg,image/png,image/webp">'+
+    '</div>'+
+    '<label class="f">Film z YouTube (opcjonalnie)<input id="cYT" autocomplete="off" placeholder="wklej link, np. https://youtu.be/… lub https://www.youtube.com/watch?v=…" value="'+
+      esc(c&&c.yt?ytAdres(c.yt):'')+'"><span class="err" id="cYTErr"></span></label>'+
     '<label class="f">Emotikona-skojarzenie (opcjonalnie)<input id="cI" maxlength="16" autocomplete="off" value="'+esc(c&&c.ikona?c.ikona:'')+'" placeholder="🧠">'+
       '<span class="znpick">'+IKONY.map(function(k){
         return '<button type="button" class="ik'+(c&&c.ikona===k?' on':'')+'" data-act="ikona" data-i="'+esc(k)+'" aria-label="wybierz emotikonę '+esc(k)+'">'+k+'</button>'}).join('')+
@@ -1567,12 +1669,38 @@ function cardForm(c){
       ? '<button class="btn primary block" data-act="cardSave">Zapisz zmiany</button>'+
         '<button class="btn ghost block small" data-act="cardDel" style="color:var(--again);border-color:var(--warn-line)">Usuń tę fiszkę…</button>'
       : '<button class="btn primary block" data-act="cardSave">Dodaj fiszkę</button>');
+  fotoOdswiez();
+  $('#cFoto').onchange=function(){const plik=this.files&&this.files[0]; this.value=''; if(plik)dodajZdjecie(plik)};
 }
+const FOTO_PODPOWIEDZ='Telefon otworzy aparat, komputer — wybór pliku. Zdjęcie widać razem z pytaniem, przed pokazaniem odpowiedzi.';
+function fotoOdswiez(komunikat){
+  const mini=$('#cFotoMini'),btn=$('#cFotoBtn'),del=$('#cFotoDel'),info=$('#cFotoInfo');
+  if(!mini)return;
+  if(fotoStan)mini.src=fotoStan;
+  mini.classList.toggle('ukryte',!fotoStan);
+  btn.textContent=fotoStan?'Zmień zdjęcie':'Dodaj zdjęcie';
+  del.classList.toggle('ukryte',!fotoStan);
+  info.textContent=komunikat||FOTO_PODPOWIEDZ;
+}
+async function dodajZdjecie(plik){
+  fotoOdswiez('Zmniejszam zdjęcie…');
+  try{
+    fotoStan=await wgrajZdjecie(plik);
+    fotoOdswiez(fotoStan.slice(0,5)==='data:'
+      ?'Zdjęcie zostało w tej przeglądarce — po zalogowaniu na konto przejdzie na serwer.'
+      :'Zdjęcie jest na serwerze. Widzi je tylko Twoje konto.');
+  }catch(e){fotoStan=fotoStare;fotoOdswiez((e&&e.message)||'Nie udało się dodać zdjęcia.')}
+}
+
 function saveCard(){
   const f=$('#cF').value.trim(),b=$('#cB').value.trim(),not=$('#cN').value.trim(),dk=$('#cD').value,zt=$('#cZ').value.trim();
   const ik=safeIkona($('#cI').value);
   const zn=zt?{t:zt,k:znWybrany||ZN_KOLORY[0][1]}:null;
+  const suroweYt=$('#cYT').value;
+  const yt=String(suroweYt).trim()?YT_ID(suroweYt):'';
   if(f.length<3||b.length<2){$('#cErr').textContent='Wypełnij obie strony — pytanie i odpowiedź.';$('#cF').focus({preventScroll:true});return}
+  if(String(suroweYt).trim()&&!yt){$('#cYTErr').textContent='To nie wygląda na link z YouTube. Użyj adresu https://youtu.be/… albo https://www.youtube.com/watch?v=…';$('#cYT').focus({preventScroll:true});return}
+  const img=safeZdjecie(fotoStan);
   const c=edytujKarte?findCard(edytujKarte):null;
   if(c){
     if(c.deck!==dk)S.log.forEach(function(l){if(l.card===c.id)l.deck=dk});
@@ -1580,12 +1708,17 @@ function saveCard(){
     if(not)c.note=not;else delete c.note;
     if(zn)c.zn=zn;else delete c.zn;
     if(ik)c.ikona=ik;else delete c.ikona;
+    if(img)c.img=img;else delete c.img;
+    if(yt)c.yt=yt;else delete c.yt;
     toast('Zmiany zapisane.','ok');
   }else{
-    S.cards.push({id:'c'+Date.now().toString(36),deck:dk,front:f,back:b,note:not||undefined,zn:zn||undefined,ikona:ik||undefined,src:'wlasna',
+    S.cards.push({id:'c'+Date.now().toString(36),deck:dk,front:f,back:b,note:not||undefined,zn:zn||undefined,ikona:ik||undefined,
+      img:img||undefined,yt:yt||undefined,src:'wlasna',
       ef:2.5,interval:0,reps:0,status:'new',due:0,lapses:0,up:Date.now()});
     toast('Fiszka dodana jako nowa.','ok');
   }
+  if(fotoStare&&fotoStare!==img)usunZdjecie(fotoStare);     // zdjęcie odłączone od karty — sprzątam plik z serwera
+  fotoStare=img;
   save();closeSheet();render();
 }
 function confirmCardDelete(id){
@@ -1760,6 +1893,18 @@ const ACT={
   ikonaZero:()=>{$('#cI').value='';$$('.znpick .ik').forEach(function(b){b.classList.remove('on')})},
   znKolor:el=>{znWybrany=el.dataset.c;$$('.znpick .znk').forEach(function(b){b.classList.toggle('on',b.dataset.c===znWybrany)})},
   znZero:()=>{znWybrany=null;$$('.znpick .znk').forEach(function(b){b.classList.remove('on')})},
+  fotoWybierz:()=>{const p=$('#cFoto');if(p)p.click()},
+  fotoUsun:()=>{fotoStan='';fotoOdswiez('Zdjęcie zniknie z fiszki, kiedy zapiszesz zmiany.')},
+  ytGraj:el=>{
+    const id=YT_ID(el.dataset.yt), wokenda=el.closest('.ytwrap')||el.parentNode;
+    if(!id||!wokenda)return;
+    const grac=document.createElement('div');grac.className='ytplayer';grac.tabIndex=-1;grac.setAttribute('aria-label','Odtwarzacz filmu z YouTube');
+    const f=document.createElement('iframe');
+    f.src='https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&rel=0';
+    f.allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+    f.referrerPolicy='strict-origin-when-cross-origin';f.allowFullscreen=true;f.title='Film z YouTube dołączony do fiszki';
+    grac.appendChild(f);wokenda.replaceWith(grac);grac.focus({preventScroll:true});
+  },
   cardSave:()=>saveCard(),
   cardDel:()=>confirmCardDelete(edytujKarte),
   delcard:el=>confirmCardDelete(el.dataset.id),
