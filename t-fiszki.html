@@ -578,14 +578,18 @@ html.konto-widok .viewport{padding-bottom:24px}
 .oc.q3{background:var(--warn-bg);color:var(--hard);border-color:var(--warn-line)}
 .oc.q4{background:var(--acc-bg);color:var(--magenta-ink);border-color:var(--acc-line)}
 .oc.q5{background:var(--ok-bg);color:var(--good);border-color:var(--ok-line)}
-.heat16{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,13px);gap:4px;overflow-x:auto;padding:12px 2px 4px;
-  scrollbar-width:thin}
+.heat16{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,13px);grid-auto-columns:13px;gap:4px;overflow-x:auto;padding:12px 2px 4px;
+  max-width:100%;scrollbar-width:thin}
 .heat16 i{width:13px;height:13px;border-radius:4px;background:var(--track)}
 .heat16 i.l1{background:var(--heat1)}
 .heat16 i.l2{background:var(--heat2)}
 .heat16 i.l3{background:var(--magenta);box-shadow:0 0 8px -1px var(--magenta)}
 .heat16 i.dzis{outline:1.5px solid var(--text);outline-offset:1px}
-.mies{display:flex;gap:14px;font:700 10px/1 var(--body);color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+.mies{display:grid;grid-auto-flow:column;grid-auto-columns:13px;gap:4px;padding:0 2px;font:700 10px/1 var(--body);color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+.mies span{white-space:nowrap;overflow:visible;min-width:0}
+.heatrow{display:flex;flex-wrap:wrap;gap:12px 26px;align-items:center;margin-top:2px}
+.heatkol{min-width:0}
+.heatleg{display:flex;flex-wrap:wrap;gap:10px 14px;font-size:11px;color:var(--dim);flex:1 1 170px;max-width:280px}
 .sbar{display:flex;height:7px;border-radius:99px;overflow:hidden;background:var(--track);min-width:90px}
 .sbar i{height:100%}
 .tabela{display:grid;gap:7px}
@@ -599,14 +603,21 @@ html.konto-widok .viewport{padding-bottom:24px}
 .pasm .n{font-family:var(--display);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
 
 /* ── Szerszy układ na dużych ekranach ───────────────────────────── */
-.grid2{display:grid;gap:12px}
+.prog-grid{display:grid;gap:12px}
 .panel .row.between h3{flex:1 1 auto;min-width:0}
 .panel .row.between .eyebrow{flex:none;white-space:nowrap}
 .web .viewport>*{max-width:min(1160px,100%)}
-@media (min-width:1700px){.web .viewport>*{max-width:1340px}}
+@media (min-width:1700px){.web .viewport>*{max-width:min(1560px,100%)}}
+@media (min-width:2000px){.web .viewport>*{max-width:min(1820px,100%)}}
 @media (min-width:1200px){
-  .web .grid2{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+  .web .prog-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+  .web .prog-grid>.span{grid-column:1/-1}
   .web .list{grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}
+}
+/* Trzy kolumny od 1700 px — niżej trzeci panel schodzi pod dwa pierwsze */
+@media (min-width:1700px){
+  .web .prog-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .web .prog-grid>.span{grid-column:auto}
 }
 .web .side{display:none}
 @media (min-width:1280px){
@@ -1455,7 +1466,7 @@ function vProgress(){
      kpi(acc30.pct+'%','skuteczność z 30 dni',true)+kpi(f.days[0],'kart dziś')+kpi(f.days[1],'kart jutro')+
      kpi(dniZNauka(),'dni z nauką')+kpi(passa,'najdłuższa passa')+kpi(srednioNaDzien(),'średnio ocen dziennie')+
    '</div>'+
-   '<div class="grid2">'+
+   '<div class="prog-grid">'+
      '<div class="panel"><div class="row between"><h3 style="font-size:14px">Prognoza <span class="nb">SM-2</span> · 14 dni</h3><span class="eyebrow">powtórki</span></div>'+
        '<div class="chart" role="img" aria-label="Liczba zaplanowanych powtórek w kolejnych 14 dniach: '+f.days.join(', ')+'">'+
          f.days.map(function(n,i){return '<div class="col" title="'+(i===0?'dziś':'dzień +'+i)+': '+n+' '+pl(n,'fiszka','fiszki','fiszek')+'">'+
@@ -1467,20 +1478,22 @@ function vProgress(){
          return '<div class="l"><span>'+BUCKETS[k][0]+'</span><span class="track"><i style="width:'+(tot?n/tot*100:0)+'%;background:'+BUCKETS[k][1]+'"></i></span><span class="n">'+n+'</span></div>'}).join('')+'</div>'+
        '<h4 style="font-size:12px;margin-top:18px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase">Ostatnie 30 dni w ocenach</h4>'+
        '<div class="pasm">'+oc.map(function(o){return '<div class="l"><span>'+o.lab+'</span><span class="track" style="height:8px;border-radius:99px;background:var(--track);overflow:hidden"><i style="display:block;height:100%;width:'+o.pct+'%;background:'+(o.q===0?'var(--again)':o.q===3?'var(--hard)':o.q===4?'var(--magenta)':'var(--good)')+'"></i></span><span class="n">'+o.n+'</span></div>'}).join('')+'</div></div>'+
-   '</div>'+
-   '<div class="panel"><div class="row between"><h3 style="font-size:14px">Aktywność · 16 tygodni</h3>'+
+   '<div class="panel span"><div class="row between"><h3 style="font-size:14px">Aktywność · 16 tygodni</h3>'+
      '<span class="eyebrow">'+S.log.length+' ocen łącznie</span></div>'+
-     '<div class="mies" aria-hidden="true">'+hm.licznik.map(function(m){return '<span style="min-width:'+(m.i===0?'13px':'52px')+'">'+esc(m.lab)+'</span>'}).join('')+'</div>'+
+     '<div class="heatrow"><div class="heatkol">'+
+     '<div class="mies" aria-hidden="true">'+hm.licznik.map(function(m,k){const nast=hm.licznik[k+1];
+       return '<span style="grid-column:'+(Math.floor(m.i/7)+1)+' / '+(nast?Math.floor(nast.i/7)+1:hm.tygodnie+1)+'">'+esc(m.lab)+'</span>'}).join('')+'</div>'+
      '<div class="heat16" role="img" aria-label="Siatka dni z liczbą ocen w ostatnich 16 tygodniach">'+
        hm.dni.map(function(d){const dd=dayIdx(d.ts);
          return '<i class="'+(d.poziom?'l'+d.poziom:'')+(dd===0?' dzis':'')+'" title="'+
-           new Date(d.ts).toLocaleDateString('pl-PL',{day:'numeric',month:'short'})+': '+d.n+' '+pl(d.n,'ocena','oceny','ocen')+'"></i>'}).join('')+'</div>'+
-     '<div class="row" style="gap:14px;margin-top:12px;flex-wrap:wrap;font-size:11px;color:var(--dim)">'+
+           new Date(d.ts).toLocaleDateString('pl-PL',{day:'numeric',month:'short'})+': '+d.n+' '+pl(d.n,'ocena','oceny','ocen')+'"></i>'}).join('')+'</div></div>'+
+     '<div class="heatleg">'+
        '<span style="display:inline-flex;gap:5px;align-items:center"><i style="width:11px;height:11px;border-radius:3px;background:var(--track);display:inline-block"></i>bez nauki</span>'+
        '<span style="display:inline-flex;gap:5px;align-items:center"><i style="width:11px;height:11px;border-radius:3px;background:var(--heat1);display:inline-block"></i>1–5</span>'+
        '<span style="display:inline-flex;gap:5px;align-items:center"><i style="width:11px;height:11px;border-radius:3px;background:var(--heat2);display:inline-block"></i>6–14</span>'+
        '<span style="display:inline-flex;gap:5px;align-items:center"><i style="width:11px;height:11px;border-radius:3px;background:var(--magenta);display:inline-block"></i>15+</span>'+
-     '</div></div>'+
+     '</div></div></div>'+
+   '</div>'+
    '<div class="panel"><div class="row between"><h3 style="font-size:14px">Postęp na talie</h3><button class="link" data-act="tab" data-go="decks">otwórz talie →</button></div>'+
      '<div class="tabela" style="margin-top:11px">'+S.decks.map(function(d){
        const cs=S.cards.filter(function(c){return c.deck===d.id});
@@ -1493,7 +1506,7 @@ function vProgress(){
            '<span class="sbar" style="margin-top:7px">'+Object.keys(BUCKETS).map(function(k){
              return dist[k]?'<i style="width:'+(dist[k]/Math.max(1,cs.length)*100)+'%;background:'+BUCKETS[k][1]+'"></i>':''}).join('')+'</span></span>'+
          '<span class="k">'+(q.list.length?'<span class="pill due">'+q.list.length+' dziś</span>':'<span class="pill mut">czysto</span>')+'</span></button>'}).join('')+'</div></div>'+
-   '<div class="grid2">'+
+   '<div class="prog-grid">'+
      '<div class="panel"><div class="row between"><h3 style="font-size:14px">Trudność fiszek</h3><span class="eyebrow">współczynnik EF</span></div>'+
        '<div class="pasm">'+ef.przedzialy.map(function(p,i){const n=ef.licznik[i],max=Math.max(1,Math.max.apply(null,ef.licznik));
          return '<div class="l"><span>'+p[0]+'</span><span class="track" style="height:8px;border-radius:99px;background:var(--track);overflow:hidden"><i style="display:block;height:100%;width:'+(n/max*100)+'%;background:'+p[1]+'"></i></span><span class="n">'+n+'</span></div>'}).join('')+'</div>'+
@@ -1514,8 +1527,7 @@ function vProgress(){
            (l.ts===ostatniTs&&l.p?'<button class="pill mut" data-act="dzCofnij">cofnij</button>':'')+'</span></div>'}).join('')+'</div>'
         :'<p style="font-size:12.5px;color:var(--dim);margin-top:10px">Jeszcze nic nie oceniłeś. Dziennik pojawi się po pierwszej sesji.</p>')+
        '<p style="font-size:11.5px;color:var(--dim);margin-top:10px">„Cofnij” przy najnowszej ocenie przywraca kartę do stanu sprzed niej — przydaje się, gdy klikniesz nie tam, gdzie trzeba.</p></div>'+
-   '</div>'+
-   '<details class="acc"><summary>Jak liczony jest termin powtórki</summary><div class="in">'+
+   '<details class="acc span"><summary>Jak liczony jest termin powtórki</summary><div class="in">'+
      '<p>Każda ocena zmienia <b>współczynnik łatwości EF</b> i długość przerwy w dniach. Ocena „Znowu\" zeruje kartę i wstawia ją z powrotem po 10 minutach.</p>'+
      '<div class="formula">EF&#8242; = EF + (0,1 &#8722; (5 &#8722; q) &#183; (0,08 + (5 &#8722; q) &#183; 0,02)) &#8805; 1,30</div>'+
      '<div class="formula">I(1) = 1 d &#183; I(2) = 6 d &#183; I(n) = round(I(n&#8722;1) &#183; EF)</div>'+
@@ -1523,6 +1535,7 @@ function vProgress(){
        '<table class="tbl"><thead><tr><th>ocena</th><th>EF po ocenie</th><th>następna przerwa</th></tr></thead><tbody>'+
        sim.map(function(r){return '<tr><td>'+r.lab+'</td><td>'+r.ef+'</td><td>'+r.iv+'</td></tr>'}).join('')+'</tbody></table></div>'+
      '<p>Te same wzory stoją pod przyciskami oceny — liczby na ich etykietach są policzone dla bieżącej karty.</p></div></details>'+
+   '</div>'+
    '<div class="row" style="gap:9px"><button class="btn ghost block" data-act="export"><svg viewBox="0 0 24 24"><path d="M12 20V9m0 0 4 4m-4-4-4 4M4 4h16"/></svg>Pobierz swoje dane (JSON)</button>'+
    (SERWER&&konto?'<button class="btn ghost block" data-act="syncTeraz">Wyślij teraz na serwer</button>':'')+'</div>'+
   '</section>';

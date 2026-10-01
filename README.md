@@ -8,7 +8,7 @@ Fiszki zbierające **złe odpowiedzi z testów na T-Portalu** plus powtórki lic
 |---|---|
 | `t-fiszki.html` | cała aplikacja: HTML + CSS + JS w jednym pliku, zero zależności, działa też otwierana przez `file://` |
 | `serwer.mjs` | konta, synchronizacja i zdjęcia fiszek: `node:http` + `node:sqlite` + `node:crypto`, też zero zależności |
-| `cdp-check.mjs` | testy na żywym Chrome (189 asercji: konto, sync, konflikt 409, zdjęcie i film na fiszce, statystyki, kontrast AA, szerokości 320–2560 px, przełącznik widoku) |
+| `cdp-check.mjs` | testy na żywym Chrome (202 asercji: konto, sync, konflikt 409, zdjęcie i film na fiszce, statystyki, kontrast AA, szerokości 320–2560 px, przełącznik widoku) |
 | `sprawd-skladnie.mjs` | wyciąga każdy blok `<script>` z `t-fiszki.html` i sprawdza samą składnię — aplikacja jest jednym plikiem, więc edytor jej nie sprawdzi |
 | `sonda-media.sh` | próba serwera przez `curl`: właściciel dostaje swoje zdjęcie, obce konto dostaje 404, SVG zostaje odrzucone, a kasacja konta sprząta pliki |
 | `.fonts/` | Manrope i Unbounded, które aplikacja i tak ma wklejone w HTML-u — zostawione jako źródło |
@@ -28,6 +28,8 @@ Bez serwera też da się korzystać: otwórz `t-fiszki.html` podwójnym kliknię
 Jeden próg, **760 px**: poniżej aplikacja układa się jak na telefonie, od 760 px dostaje układ komputerowy z nawigacją jako paskiem z lewej. Trzy tryby: **Dopasuj do ekranu** (tak działa domyślne `auto`), **Telefon** (zawsze wąska kolumna, a na dużym oknie ramka telefonu z opisem obok) i **Komputer** (pełna szerokość okna). Przełącza się je przyciskiem w pasku — ikona pokazuje to, co właśnie widać (telefon albo monitor) — klawiszem `W`, albo w menu → „Widok aplikacji", gdzie trzy nazwane pola są obok siebie, a pod nimi jednozdaniowe wyjaśnienie, co oznacza wybrany tryb. Wybór jest zapamiętywany **na każdym urządzeniu osobno** (`localStorage`), więc telefon nie narzuca laptopowi widoku i odwrotnie — przez serwer podróżują fiszki, terminy i statystyki, nie układ okna.
 
 Na telefonie pionowym tryb komputerowy nie ma gdzie się rozłożyć, więc dostaje układ 760 px przewijany w poziomie (pasek górny i nawigacja trzymają się krawędzi okna) — dokładnie tak działa „Wersja komputerowa" w Chrome. Wystarczy obrócić telefon (844 px), żeby całość zmieściła się bez przewijania.
+
+Szerokie okno dostaje tyle kolumn, ile pomieści: **Postęp** układa bloki statystyk w dwóch kolumnach od 1200 px, a w trzech od 1700 px; panel, który nie mieści się do rzędu, rozciąga się na całą szerokość (`span`). Treść idzie do 1160 px, 1560 px i 1820 px w trzech progach (1700 i 2000 px), więc przy oknie ~2047 px nie zostaje pusty pas po prawej. Heatmapa jest gęsta (kafylek 13 px), a etykiety miesięcy siedzą dokładnie nad swoimi tygodniami — test porównuje ich pozycje z wyliczonymi kolumnami.
 
 ## Zdjęcie i film przy fiszce
 

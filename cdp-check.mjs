@@ -505,7 +505,8 @@ await click('[data-act="reveal"]', 400);
 await click('[data-act="grade"][data-q="4"]', 800);
 await ev(`document.querySelectorAll('.tab')[3].click()`); await sleep(800);
 await shot('s1-postep-ciemny-390');
-const bloki = await json(`JSON.stringify({kpi:document.querySelectorAll('.kpis .kpi').length,grid2:document.querySelectorAll('.grid2').length,
+const bloki = await json(`JSON.stringify({kpi:document.querySelectorAll('.kpis .kpi').length,prog:document.querySelectorAll('.prog-grid').length,
+  kolumny:getComputedStyle(document.querySelector('.prog-grid')).gridTemplateColumns.split(' ').length,
   heat:document.querySelectorAll('.heat16 i').length,heatKolor:document.querySelectorAll('.heat16 i.l1,.heat16 i.l2,.heat16 i.l3').length,
   mies:document.querySelectorAll('.mies span').length,dzis:document.querySelectorAll('.heat16 i.dzis').length,
   rzedy:document.querySelectorAll('.tabela .rz').length,sbary:document.querySelectorAll('.sbar').length,
@@ -521,7 +522,8 @@ check('heatmapa pokazuje dni z nauką', bloki.heatKolor > 5, String(bloki.heatKo
 check('postęp na talie: każdy wiersz ma pasek stanów', bloki.rzedy === bloki.sbary && bloki.rzedy >= 4, JSON.stringify({rzedy: bloki.rzedy, sbary: bloki.sbary}));
 check('trudność: rozkład EF i najtrudniejsze z edycją', bloki.pasmy >= 2 && bloki.edytuj > 0 && bloki.teraz > 0, JSON.stringify({pasmy: bloki.pasmy, edytuj: bloki.edytuj, teraz: bloki.teraz}));
 check('dziennik ocen z cofnięciem najnowszej oceny', bloki.dziennik && bloki.cofnij === 1, JSON.stringify({cofnij: bloki.cofnij, wezelce: bloki.wezelce}));
-check('wszystkie cztery bloki statystyk na ekranie', bloki.naglowki && bloki.grid2 === 2, JSON.stringify({naglowki: bloki.naglowki, grid2: bloki.grid2}));
+check('wszystkie cztery bloki statystyk na ekranie', bloki.naglowki && bloki.prog === 2, JSON.stringify({naglowki: bloki.naglowki, prog: bloki.prog}));
+check('na telefonie statystyki idą jedna pod drugą', bloki.kolumny === 1, String(bloki.kolumny));
 const przedCof = await json(`JSON.stringify((()=>{const l=S.log[S.log.length-1];return{logi:S.log.length,card:l.card,ef:l.p.ef,reps:l.p.reps,due:l.p.due,interval:l.p.interval}})())`);
 await click('[data-act="dzCofnij"]', 800);
 const poCof = await json(`JSON.stringify((()=>{const c=findCard(${JSON.stringify(przedCof.card)});return{logi:S.log.length,ef:c.ef,reps:c.reps,due:c.due,interval:c.interval}})())`);
@@ -723,9 +725,16 @@ await ev(`S.settings.motyw='jasny';save();applyTheme();go('progress')`); await s
 await shot('w5-web-postep-jasny');
 aud = await json(AUDIT); console.log('AUDYT JASNY 1280', JSON.stringify(aud));
 check('kontrast AA 1280 jasny (postęp)', aud.zlych === 0, JSON.stringify(aud.najgorsze));
-const statWeb = await json(`JSON.stringify({slupki:document.querySelectorAll('.kpis .kpi').length,grid2:[...document.querySelectorAll('.grid2')].map(g=>Math.round(g.getBoundingClientRect().width)),
-  heat:document.querySelectorAll('.heat16 i').length,kolumny:Math.round(document.querySelector('#viewport > *').getBoundingClientRect().width)})`);
-check('statystyki w dwóch kolumnach na szerokim układzie', statWeb.grid2.every(w => w > 700) && statWeb.slupki === 6 && statWeb.heat === 112, JSON.stringify(statWeb));
+const statWeb = await json(`JSON.stringify((()=>{const vb=document.querySelector('.viewport').getBoundingClientRect(),g=document.querySelector('.prog-grid');
+ return {slupki:document.querySelectorAll('.kpis .kpi').length,heat:document.querySelectorAll('.heat16 i').length,
+   dostepne:Math.round(vb.width-64),
+   gridy:[...document.querySelectorAll('.prog-grid')].map(e=>({szers:Math.round(e.getBoundingClientRect().width),
+     kol:getComputedStyle(e).gridTemplateColumns.split(' ').length})),
+   aktywn:Math.round(document.querySelector('.panel.span').getBoundingClientRect().width),
+   grid0:Math.round(g.getBoundingClientRect().width)}})())`);
+check('statystyki w dwóch kolumnach na szerokim układzie', statWeb.gridy.length === 2 && statWeb.gridy.every(g => g.kol === 2) && statWeb.slupki === 6 && statWeb.heat === 112, JSON.stringify(statWeb));
+check('bloki postępu wypełniają dostępną szerokość (1280)', statWeb.gridy.every(g => g.szers >= statWeb.dostepne * 0.94), JSON.stringify(statWeb));
+check('panel „Aktywność” rozciąga się na obie kolumny', statWeb.aktywn >= statWeb.grid0 * 0.98, JSON.stringify({aktywn: statWeb.aktywn, grid0: statWeb.grid0}));
 await ev(`S.settings.motyw='ciemny';save();applyTheme()`); await sleep(400);
 
 /* ══ 10 · Wymuszony podgląd na telefon + skróty klawiszowe ═════════ */
@@ -777,13 +786,19 @@ for (const w of [759, 760, 900, 1280, 1400, 1600, 2560]) {
 }
 await send('Emulation.setDeviceMetricsOverride', {width: 2489, height: 1265, deviceScaleFactor: 1, mobile: false});
 await ev(`go('progress')`); await sleep(1000);
-const veryWide = await json(`JSON.stringify({content:Math.round(document.querySelector('#viewport > *').getBoundingClientRect().width),
+const veryWide = await json(`JSON.stringify((()=>{const g=document.querySelector('.prog-grid'),vk=document.querySelector('.viewport'),sp=document.querySelector('.panel.span'),ak=document.querySelector('.heat16');
+ const vr=vk.getBoundingClientRect(), dostepne=Math.round(vr.width-64), grid=Math.round(g.getBoundingClientRect().width), panel=Math.round(sp.getBoundingClientRect().width);
+ return {content:Math.round(document.querySelector('#viewport > *').getBoundingClientRect().width),dostepne:dostepne,
   lewo:Math.round(document.querySelector('#viewport > *').getBoundingClientRect().left),
   heat:document.querySelectorAll('.heat16 i').length,slupki:document.querySelectorAll('.kpis .kpi').length,
+  kolumny:getComputedStyle(g).gridTemplateColumns.split(' ').length,
+  span:panel>=grid*0.98?1:0, wypelnia:grid>=dostepne*0.94?1:0, heatKol:getComputedStyle(ak).gridAutoColumns,
   rail:Math.round(document.querySelector('.rail').getBoundingClientRect().left),
-  kolizja:[...document.querySelectorAll('.panel,.grid2,.kpis')].some(e=>e.getBoundingClientRect().right>document.querySelector('.rail').getBoundingClientRect().left+1)})`);
+  kolizja:[...document.querySelectorAll('.panel,.prog-grid,.kpis')].some(e=>e.getBoundingClientRect().right>document.querySelector('.rail').getBoundingClientRect().left+1)}})())`);
 console.log('2489 px', JSON.stringify(veryWide));
-check('treść wykorzystuje ekran 2489 px', veryWide.content > 1000 && veryWide.content <= 1400, JSON.stringify(veryWide));
+check('treść wykorzystuje ekran 2489 px', veryWide.content >= veryWide.dostepne * 0.94 && veryWide.content <= 1830, JSON.stringify(veryWide));
+check('postęp ma trzy kolumny od 1700 px', veryWide.kolumny === 3 && veryWide.span === 0 && veryWide.wypelnia === 1, JSON.stringify(veryWide));
+check('heatmapa gęsta: kolumny siatki mają szerokość kafelka', /13/.test(veryWide.heatKol), String(veryWide.heatKol));
 check('treść nie wchodzi pod panel boczny', veryWide.kolizja === false, JSON.stringify({rail: veryWide.rail, content: veryWide.content}));
 await shot('z1-postep-2489');
 await ev(`go('today')`); await sleep(800);
@@ -809,6 +824,38 @@ console.log('OKNO-1752', JSON.stringify(okno));
 check('1752 px: „Dziś” w dwóch kolumnach bez pustego pasa', ok1752.ile === 2 && ok1752.sz >= ok1752.dostepne * 0.94 && ok1752.kolizja === false, JSON.stringify(okno));
 check('1752 px: kolumny zbliżone szerokością', Math.abs(ok1752.kids.split('/')[0] - ok1752.kids.split('/')[1]) < 60, ok1752.kids);
 await shot('z4-dzis-1752');
+
+/* okno użytkownika ~2047 px: „Postęp” nie może zostawiać pustego pasa po prawej */
+await send('Emulation.setDeviceMetricsOverride', {width: 2047, height: 1228, deviceScaleFactor: 1, mobile: false});
+await ev(`go('progress')`); await sleep(1000);
+const postep2047 = await json(`JSON.stringify((()=>{const vk=document.querySelector('.viewport'),rl=document.querySelector('.rail'),
+  g=[...document.querySelectorAll('.prog-grid')],pasma=g.map(e=>Math.round(e.getBoundingClientRect().width)),
+  kol=getComputedStyle(g[0]).gridTemplateColumns.split(' '),ak=document.querySelector('.heat16'),
+  zle=[...document.querySelectorAll('.prog-grid .panel')].filter(e=>e.getBoundingClientRect().right>rl.left+1),
+  h=document.querySelector('.heat16').getBoundingClientRect(),
+  ocz=heatmapa(16).licznik.map(m=>Math.floor(m.i/7)*17+2),
+  mie=[...document.querySelectorAll('.mies span')].map(e=>Math.round(e.getBoundingClientRect().left-h.left));
+  return{pasma:pasma.join('/'),dostepne:Math.round(vk.getBoundingClientRect().width-64),kolumny:kol.length,szerKol:kol.map(x=>Math.round(parseFloat(x))).join('/'),
+    kolizja:zle.length,przewija:ak.scrollWidth>ak.clientWidth+1?1:0,dok:document.scrollingElement.scrollWidth,inner:innerWidth,
+    mies:mie.join('/'),miesOcz:ocz.join('/'),miesW:Math.round(h.width),miesZle:mie.some((x,i)=>Math.abs(x-ocz[i])>1)}})())`);
+console.log('POSTEP-2047', JSON.stringify(postep2047));
+check('2047 px: postęp ma trzy kolumny', postep2047.kolumny === 3, String(postep2047.kolumny));
+check('2047 px: bloki postępu wypełniają dostępną szerokość', postep2047.pasma.split('/').every(s => Number(s) >= postep2047.dostepne * 0.94), JSON.stringify(postep2047));
+check('2047 px: kolumny równe i nic nie wchodzi pod panel', Number(postep2047.kolizja) === 0 && Math.max(...postep2047.szerKol.split('/').map(Number)) - Math.min(...postep2047.szerKol.split('/').map(Number)) < 4, JSON.stringify(postep2047));
+check('2047 px: heatmapa mieści się bez przewijania', postep2047.przewija === 0 && postep2047.dok <= postep2047.inner + 1, JSON.stringify(postep2047));
+check('2047 px: miesiące nad heatmapą wskazują swoje tygodnie', postep2047.mies.split('/').length >= 3 && postep2047.miesZle === false, JSON.stringify({mies: postep2047.mies, oczekiwane: postep2047.miesOcz, szerokosc: postep2047.miesW}));
+aud = await json(AUDIT); console.log('AUDYT CIEMNY 2047 POSTEP', JSON.stringify(aud));
+check('kontrast AA 2047 ciemny (postęp)', aud.zlych === 0, JSON.stringify(aud.najgorsze));
+await shot('z5-postep-2047');
+await ev(`S.settings.motyw='jasny';save();applyTheme();render()`); await sleep(900);
+await shot('z6-postep-2047-jasny');
+aud = await json(AUDIT); console.log('AUDYT JASNY 2047 POSTEP', JSON.stringify(aud));
+check('kontrast AA 2047 jasny (postęp)', aud.zlych === 0, JSON.stringify(aud.najgorsze));
+await ev(`S.settings.motyw='ciemny';save();applyTheme()`); await sleep(400);
+/* pasma etykiet pod słupkami prognozy nie mogą na siebie nachodzić */
+const etykiety = await json(`JSON.stringify((()=>{const l=[...document.querySelectorAll('.chart .lab')];
+  return{ile:l.length,nachodz:l.some((e,i)=>i&&Math.round(e.getBoundingClientRect().left)<Math.round(l[i-1].getBoundingClientRect().right))}})())`);
+check('2047 px: etykiety prognozy się nie nachodzą', etykiety.nachodz === false && etykiety.ile >= 14, JSON.stringify(etykiety));
 
 await send('Emulation.setDeviceMetricsOverride', {width: 1440, height: 940, deviceScaleFactor: 1, mobile: false});
 await ev(`go('today')`); await sleep(600); await shot('d1-desktop');

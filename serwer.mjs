@@ -303,6 +303,6 @@ const serwer = createServer(async function (req, res) {
   }
 });
 serwer.listen(PORT, HOST, function () {
-  console.log(`T-Fiszki: http://${HOST}:${PORT}  (baza: dane/t-fiszki.db)`);
+  console.log(`T-Fiszki: http://${HOST}:${PORT}  (baza: ${BAZA})`);
   if (!existsSync(PLIK_APLIKACJI)) console.log('UWAGA: brakuje pliku t-fiszki.html obok serwera.');
 });
