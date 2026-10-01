@@ -499,6 +499,13 @@ check('plik zdjęcia skasowany z serwera razem z odłączaniem', poSerwerze.stat
 await ev(`findCard(${IDK}).yt='';save();render()`); await sleep(400);
 await send('Network.setBlockedURLs', {urls: []});
 
+/* ══ 2e · Nagłówki bezpieczeństwa dokumentu ════════════════════════ */
+const glowice = await json(`fetch('/',{cache:'no-store'}).then(r=>JSON.stringify({csp:r.headers.get('content-security-policy')||'',
+  xfo:r.headers.get('x-frame-options')||'',nosniff:r.headers.get('x-content-type-options')||'',ref:r.headers.get('referrer-policy')||''}))`);
+check('strona nie pozwala osadzić się w cudzej ramce', /frame-ancestors 'none'/.test(glowice.csp) && glowice.xfo === 'DENY', JSON.stringify(glowice));
+check('serwer mówi przeglądarce, żeby nie zgadywała typu pliku', glowice.nosniff === 'nosniff', JSON.stringify(glowice));
+check('reguła odsyłacza trzymana w ryzach', /same-origin|strict-origin/.test(glowice.ref), JSON.stringify(glowice));
+
 /* ══ 3 · Statystyki ════════════════════════════════════════════════ */
 await ev(`session=null;startSession(false)`); await sleep(600);
 await click('[data-act="reveal"]', 400);

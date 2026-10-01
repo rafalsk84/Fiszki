@@ -1,6 +1,8 @@
 /*
   T-Fiszki — serwer kont i synchronizacji.
   Uruchom:  node serwer.mjs        potem otwórz  http://127.0.0.1:8765
+  Publicznie (za nginxem z HTTPS): PROXY=1 — wtedy adres gościa i protokół czytamy z x-forwarded-*,
+  a sufity na cały serwer ustawia LIMIT_REJ (kont na godzinę z adresu), LIMIT_KONT, LIMIT_MEDIA (bajty zdjęć).
   Node 24, zero zależności: wbudowany moduł sqlite, kryptografia i serwer HTTP.
 
   Co tu jest: konta (nazwa + hasło), sesja w ciasteczku, zapis stanu fiszek na serwerze.
@@ -25,6 +27,13 @@ const MAX_CIALA = 2 * 1024 * 1024;          // 2 MB na zestaw fiszek — z zapas
 const LIMIT_PROB = 8, OKNO_PROB = 15 * 60e3; // 8 błędnych logowań z rzędu na 15 minut
 const MAX_MEDIA = 4 * 1024 * 1024;          // 4 MB na jeden plik graficzny (klient i tak zmniejsza do ~150 kB)
 const LIMIT_ZDJEC = 80, LIMIT_BAJTOW = 24 * 1024 * 1024;    // sufit na konto: tyle zdjęć albo tyle bajtów
+/* Sufity poniżej mają znaczenie poza domem. Lokalnie, bez PROXY=1, limity rejestracji i kont
+   są tak wysokie, że nikt ich nie dotknie — a adres gościa bierzemy wtedy wprost z połączenia. */
+const PROXY = process.env.PROXY === '1';                        // ruch za serwerem pośredniczącym: ufasz nagłówkom x-forwarded-*
+const LIMIT_REJ = Number(process.env.LIMIT_REJ || 20);          // tyle kont można założyć z jednego adresu w godzinę
+const OKNO_REJ = 60 * 60e3;
+const LIMIT_KONT = Number(process.env.LIMIT_KONT || 300);       // sufit kont na całym serwerze
+const LIMIT_MEDIA_CALKOWITY = Number(process.env.LIMIT_MEDIA || 1024 * 1024 * 1024);   // 1 GB zdjęć na serwer
 // Zdjęcia leżą w katalogu przy bazie, więc testy na BAZA=dane/testy.db nie wchodzą w prawdziwe pliki.
 const KATALOG_MEDIA = process.env.MEDIA || join(dirname(BAZA), 'media-' + basename(BAZA).replace(/\.[^.]*$/, ''));
 
@@ -62,12 +71,22 @@ async function sprawdzOdcisk(haslo, sol, oczekiwany) {
 const ZAP = db.prepare('insert into proby(klucz,ile,od) values(?,1,?) on conflict(klucz) do update set ile=ile+1,od=excluded.od');
 const CZY_BLOKADA = db.prepare('select ile,od from proby where klucz=?');
 const CZYST_BLOKADA = db.prepare('delete from proby where klucz=?');
-function zaBlokowany(klucz, teraz) {
+function zaBlokowany(klucz, teraz, limit = LIMIT_PROB, okno = OKNO_PROB) {
   const w = CZY_BLOKADA.get(klucz);
   if (!w) return 0;
-  if (teraz - w.od > OKNO_PROB) { CZYST_BLOKADA.run(klucz); return 0; }
-  return w.ile >= LIMIT_PROB ? Math.ceil((OKNO_PROB - (teraz - w.od)) / 60000) : 0;
+  if (teraz - w.od > okno) { CZYST_BLOKADA.run(klucz); return 0; }
+  return w.ile >= limit ? Math.max(1, Math.ceil((okno - (teraz - w.od)) / 60000)) : 0;
 }
+/* Gość za serwerem pośredniczącym ma adres nginxa, więc liczniki oparte na nim zamknęłyby całą klasę
+   po jednej próbie. PROXY=1 mówi: pierwszy adres z x-forwarded-* jest prawdziwy. */
+function adresKlienta(req) {
+  if (PROXY) {
+    const pierwszy = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    if (pierwszy) return pierwszy;
+  }
+  return req.socket.remoteAddress || '?';
+}
+const poHTTPS = req => PROXY && String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
 const POBIERZ_KONTO = db.prepare('select id,nick,sol,odcisk from konta where nazwa=?');
 async function uwierzytelnij(req, res) {
   const c = ciasteczka(req);
@@ -78,15 +97,19 @@ async function uwierzytelnij(req, res) {
   return w.konto;
 }
 function kontoPoId(id) { return db.prepare('select id,nick from konta where id=?').get(id); }
-function nowaSesja(res, idKonta) {
+// Secure tylko gdy ruch przyszedł po HTTPS — inaczej ciastko zniknęłoby na zwykłym http:// w domu
+function ciastkoSesja(wartosc, wiek, secure) {
+  return `tfiszki_sesja=${wartosc}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${wiek}` + (secure ? '; Secure' : '');
+}
+function nowaSesja(res, req, idKonta) {
   const token = randomBytes(32).toString('hex');
   db.prepare('insert into sesje(token,konto,wazna_do) values(?,?,?)').run(token, idKonta, Date.now() + DNI_SESJI * 864e5);
-  res.setHeader('set-cookie', `tfiszki_sesja=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${DNI_SESJI * 86400}`);
+  res.setHeader('set-cookie', ciastkoSesja(token, DNI_SESJI * 86400, poHTTPS(req)));
 }
 function wyloguj(res, req) {
   const c = ciasteczka(req);
   if (c.tfiszki_sesja) db.prepare('delete from sesje where token=?').run(c.tfiszki_sesja);
-  res.setHeader('set-cookie', 'tfiszki_sesja=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
+  res.setHeader('set-cookie', ciastkoSesja('', 0, poHTTPS(req)));
 }
 function ciasteczka(req) {
   const out = {};
@@ -133,6 +156,8 @@ function cialoBin(req, limit) {
   });
 }
 const WK = db.prepare('select count(*) n, coalesce(sum(rozmiar),0) b from media where konto=?');
+const LICZ_KONTA = db.prepare('select count(*) n from konta');
+const MEDIA_WSZYSTKIE = db.prepare('select coalesce(sum(rozmiar),0) b from media');
 const POBIERZ_MEDIA = db.prepare('select id,konto,plik,typ from media where id=?');
 const DODAJ_MEDIA = db.prepare('insert into media(id,konto,plik,typ,rozmiar,utworzono) values(?,?,?,?,?,?)');
 const USUN_MEDIA = db.prepare('delete from media where id=? and konto=?');
@@ -165,6 +190,11 @@ const TRASY = {
   },
   'POST /api/register': async function (req, res) {
     if (!dozwolonyZrodlo(req)) return json(res, 403, {blad: 'Nieznane źródło żądania.'});
+    const klucz = 'rej|' + adresKlienta(req), teraz = Date.now();
+    const minut = zaBlokowany(klucz, teraz, LIMIT_REJ, OKNO_REJ);
+    if (minut) return json(res, 429, {blad: `Za dużo kont zakładanych z tego adresu. Odczekaj ${minut} min.`});
+    ZAP.run(klucz, teraz);                                  // liczy się każda próba, także ta z błędnymi danymi
+    if (LICZ_KONTA.get().n >= LIMIT_KONT) return json(res, 503, {blad: 'Na tym serwerze jest już pełno kont — poproś opiekuna aplikacji o większy limit.'});
     const b = await cialo(req), nazwa = czystaNazwa(b.nazwa);
     if (!poprawnaNazwa(nazwa)) return json(res, 400, {blad: 'Podaj imię lub pseudonim: od 2 do 28 znaków, nie same cyfry.'});
     if (!poprawneHaslo(b.haslo)) return json(res, 400, {blad: 'Hasło musi mieć co najmniej 8 znaków.'});
@@ -172,12 +202,12 @@ const TRASY = {
     const sol = randomBytes(16).toString('hex');
     const odcisk = await zaszyfruj(b.haslo, sol);
     const w = db.prepare('insert into konta(nick,nazwa,sol,odcisk,utworzono) values(?,?,?,?,?)').run(nazwa, nazwa.toLowerCase(), sol, odcisk, Date.now());
-    nowaSesja(res, Number(w.lastInsertRowid));
+    nowaSesja(res, req, Number(w.lastInsertRowid));
     json(res, 200, {zalogowany: true, nazwa: nazwa});
   },
   'POST /api/login': async function (req, res) {
     if (!dozwolonyZrodlo(req)) return json(res, 403, {blad: 'Nieznane źródło żądania.'});
-    const b = await cialo(req), nazwa = czystaNazwa(b.nazwa), ip = (req.socket.remoteAddress || '?') + '|' + nazwa.toLowerCase();
+    const b = await cialo(req), nazwa = czystaNazwa(b.nazwa), ip = adresKlienta(req) + '|' + nazwa.toLowerCase();
     const minut = zaBlokowany(ip, Date.now());
     if (minut) return json(res, 429, {blad: `Za wiele prób logowania. Odczekaj ${minut} min.`});
     const k = POBIERZ_KONTO.get(nazwa.toLowerCase());
@@ -186,7 +216,7 @@ const TRASY = {
     if (!ok) { ZAP.run(ip, Date.now()); return json(res, 401, {blad: 'Nazwa albo hasło się nie zgadza.'}); }
     CZYST_BLOKADA.run(ip);
     db.prepare('delete from sesje where wazna_do<?').run(Date.now());
-    nowaSesja(res, k.id);
+    nowaSesja(res, req, k.id);
     json(res, 200, {zalogowany: true, nazwa: k.nick});
   },
   'POST /api/logout': async function (req, res) {
@@ -229,6 +259,8 @@ const TRASY = {
     const zapas = WK.get(k.id);
     if (zapas.n >= LIMIT_ZDJEC || zapas.b + b.length > LIMIT_BAJTOW)
       return json(res, 507, {blad: `Za dużo zdjęć na koncie (limit ${LIMIT_ZDJEC} zdjęć albo ${Math.round(LIMIT_BAJTOW / 1048576)} MB). Usuń zdjęcie ze starych fiszek.`});
+    if (MEDIA_WSZYSTKIE.get().b + b.length > LIMIT_MEDIA_CALKOWITY)
+      return json(res, 507, {blad: 'Serwer ma pełno zdjęć od wszystkich uczniów — powiedz opiekunowi aplikacji.'});
     const mid = randomBytes(8).toString('hex'), plik = mid + '.' + typ[1];
     mkdirSync(katalogKonta(k.id), {recursive: true});
     writeFileSync(join(katalogKonta(k.id), plik), b);
@@ -291,8 +323,11 @@ const serwer = createServer(async function (req, res) {
     if (klucz.startsWith('POST /api/') || klucz.startsWith('PUT /api/')) return json(res, 404, {blad: 'Nie ma takiego punktu API.'});
     if (req.method === 'GET' && (klucz === 'GET /' || klucz === 'GET /t-fiszki.html')) {
       const html = readFileSync(PLIK_APLIKACJI);
+      // Strona z formularzem logowania nie może dać się osadzić w cudzej ramce — inaczej ktoś podszyłby się pod nią.
       res.writeHead(200, {'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store',
-        'content-length': html.length, 'x-content-type-options': 'nosniff'});
+        'content-length': html.length, 'x-content-type-options': 'nosniff',
+        'content-security-policy': "frame-ancestors 'none'", 'x-frame-options': 'DENY',
+        'referrer-policy': 'strict-origin-when-cross-origin'});
       return res.end(html);
     }
     res.writeHead(404, {'content-type': 'text/plain; charset=utf-8'}); res.end('Nie ma takiej strony.');
